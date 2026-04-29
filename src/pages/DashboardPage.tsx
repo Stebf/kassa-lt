@@ -1,0 +1,90 @@
+import { useEffect, useState } from "react";
+import {
+  Box,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+  CircularProgress,
+  Alert,
+} from "@mui/material";
+import { getOrders } from "../api";
+import type { Order } from "../types/order";
+
+export default function DashboardPage() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadOrders();
+  }, []);
+
+  async function loadOrders() {
+    try {
+      setLoading(true);
+      const data = await getOrders();
+      setOrders(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load orders");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (loading) return <CircularProgress sx={{ display: "block", mx: "auto", mt: 4 }} />;
+
+  return (
+    <Box sx={{ p: 2 }}>
+      <Typography variant="h5" sx={{ mb: 3 }}>
+        Order History
+      </Typography>
+
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+      {orders.length === 0 ? (
+        <Typography color="textSecondary">No orders yet</Typography>
+      ) : (
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+                <TableCell>Order ID</TableCell>
+                <TableCell>UUID</TableCell>
+                <TableCell>Date/Time</TableCell>
+                <TableCell>Total</TableCell>
+                <TableCell>Method</TableCell>
+                <TableCell>Items</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {orders.map((order) => (
+                <TableRow key={order.id}>
+                  <TableCell>
+                    {order.id}
+                  </TableCell>
+                  <TableCell sx={{ fontFamily: "monospace", fontSize: 12 }}>
+                    {order.uuid}
+                  </TableCell>
+                  <TableCell>
+                    {new Date(order.created_at).toLocaleString()}
+                  </TableCell>
+                  <TableCell>€{order.total.toFixed(2)}</TableCell>
+                  <TableCell>{order.payment_method}</TableCell>
+                  <TableCell>
+                    {order.items.map((item) => `${item.name} x${item.quantity}`).join(", ")}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </Box>
+  );
+}
