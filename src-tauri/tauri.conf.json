@@ -2,9 +2,9 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "kassa-lt",
   "version": "0.1.0",
-  "identifier": "com.tauri.dev",
+  "identifier": "com.stebf.kassa-lt",
   "build": {
-    "frontendDist": "../src",
+    "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build"
@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "kassa-lt",
-        "width": 800,
-        "height": 600,
+        "width": 1200,
+        "height": 1000,
         "resizable": true,
         "fullscreen": false
       }
