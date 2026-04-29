@@ -1,16 +1,33 @@
 mod commands;
 
+use r2d2::Pool;
+use tauri::Manager;
+use crate::commands::SqliteManager;
+use crate::commands::DbPool;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
     .setup(|app| {
-      // Initialize database
-      if let Err(e) = commands::init_db(app.handle()) {
+      // Create DB path and connection pool
+      let app_handle = app.handle();
+      let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
+      std::fs::create_dir_all(&app_data_dir).map_err(|e| e.to_string())?;
+      let db_path = app_data_dir.join("kassalt.db");
+
+      let manager = SqliteManager::file(db_path);
+      let pool: DbPool = Pool::new(manager).map_err(|e| e.to_string())?;
+
+      // Initialize database schema using the pool
+      if let Err(e) = commands::init_db_with_pool(&pool) {
         eprintln!("Failed to initialize database: {}", e);
       }
-      
+
+      // Make the pool available as managed state
+      app.manage(pool);
+
       if cfg!(debug_assertions) {
-        app.handle().plugin(
+        app_handle.plugin(
           tauri_plugin_log::Builder::default()
             .level(log::LevelFilter::Info)
             .build(),

@@ -27,3 +27,4 @@ rusqlite = { version = "0.31", features = ["bundled"] }
 uuid = { version = "1.6", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 tokio = { version = "1", features = ["full"] }
+r2d2 = "0.8"
