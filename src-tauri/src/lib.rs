@@ -16,6 +16,7 @@ pub fn run() {
       let app_data_dir = app_handle.path().app_data_dir().map_err(|e| e.to_string())?;
       std::fs::create_dir_all(&app_data_dir).map_err(|e| e.to_string())?;
       let db_path = app_data_dir.join("kassalt.db");
+      println!("Using database at: {:?}", db_path);
 
       let manager = SqliteManager::file(db_path);
       let pool: DbPool = Pool::new(manager).map_err(|e| e.to_string())?;

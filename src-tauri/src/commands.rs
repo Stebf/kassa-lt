@@ -1,6 +1,7 @@
 use chrono::Utc;
 use uuid::Uuid;
 use std::path::PathBuf;
+use rusqlite::params;
 
 use r2d2::{ManageConnection, Pool};
 
@@ -60,6 +61,16 @@ pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
             price_cents INTEGER NOT NULL,
             quantity INTEGER NOT NULL,
             FOREIGN KEY(order_id) REFERENCES orders(id)
+        );
+        
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            action TEXT NOT NULL,
+            table_name TEXT NOT NULL,
+            record_id TEXT,
+            old_values TEXT,
+            new_values TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         );"
     )
     .map_err(|e| e.to_string())?;
@@ -90,16 +101,23 @@ pub fn add_product_with_pool(pool: &DbPool, name: String, price: f64) -> Result<
     let normalized_name = logic::normalize_product_name(&name)?;
     logic::validate_price(price)?;
 
-    let conn = pool.get().map_err(|e| e.to_string())?;
+    let mut conn = pool.get().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
     let price_cents = logic::price_to_cents(price);
 
-    conn.execute(
+    tx.execute(
         "INSERT INTO products (name, price_cents) VALUES (?1, ?2)",
-        rusqlite::params![normalized_name, price_cents],
+        params![normalized_name, price_cents],
     ).map_err(|e| e.to_string())?;
 
-    let id = conn.last_insert_rowid() as i32;
+    let id = tx.last_insert_rowid() as i32;
 
+    tx.execute(
+        "INSERT INTO audit_log (action, table_name, record_id, new_values) VALUES (?, ?, ?, ?)",
+        params!["INSERT", "products", id, serde_json::to_string(&Product { id, name: normalized_name.clone(), price }).unwrap_or_else(|_| String::new())],
+    ).map_err(|e| e.to_string())?;
+
+    tx.commit().map_err(|e| e.to_string())?;
     Ok(Product {
         id,
         name: normalized_name,
@@ -122,7 +140,7 @@ pub fn checkout_with_pool(pool: &DbPool, items: Vec<CartItem>, payment_method: S
 
     tx.execute(
         "INSERT INTO orders (uuid, created_at, total_cents, payment_method) VALUES (?1, ?2, ?3, ?4)",
-        rusqlite::params![&order_uuid, &created_at, total_cents, &payment_method],
+        params![&order_uuid, &created_at, total_cents, &payment_method],
     ).map_err(|e| e.to_string())?;
 
     let order_id = tx.last_insert_rowid();
@@ -131,9 +149,21 @@ pub fn checkout_with_pool(pool: &DbPool, items: Vec<CartItem>, payment_method: S
         let price_cents = logic::price_to_cents(item.price);
         tx.execute(
             "INSERT INTO order_items (order_id, name, price_cents, quantity) VALUES (?1, ?2, ?3, ?4)",
-            rusqlite::params![&order_id, &item.name, price_cents, item.quantity],
+            params![&order_id, &item.name, price_cents, item.quantity],
         ).map_err(|e| e.to_string())?;
     }
+
+    tx.execute(
+        "INSERT INTO audit_log (action, table_name, record_id, new_values) VALUES (?, ?, ?, ?)",
+        params!["INSERT", "orders", order_uuid, serde_json::to_string(&Order {
+            id: order_id,
+            uuid: order_uuid.clone(),
+            created_at: created_at.clone(),
+            total: total_cents as f64 / 100.0,
+            payment_method: payment_method.clone(),
+            items: logic::order_items_from_cart(&items),
+        }).unwrap_or_else(|_| String::new())],
+    ).map_err(|e| e.to_string())?;
 
     tx.commit().map_err(|e| e.to_string())?;
 
@@ -221,12 +251,13 @@ pub fn get_product_with_pool(pool: &DbPool, id: i32) -> Result<Product, String> 
 }
 
 pub fn update_product_with_pool(pool: &DbPool, id: i32, name: Option<String>, price: Option<f64>) -> Result<Product, String> {
-    let conn = pool.get().map_err(|e| e.to_string())?;
+    let mut conn = pool.get().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
 
     // Fetch current product to get existing values
-    let current = conn.query_row(
+    let current = tx.query_row(
         "SELECT id, name, price_cents FROM products WHERE id = ?1",
-        rusqlite::params![id],
+        params![id],
         |row| {
             Ok((
                 row.get::<_, i32>(0)?,
@@ -235,6 +266,12 @@ pub fn update_product_with_pool(pool: &DbPool, id: i32, name: Option<String>, pr
             ))
         },
     ).map_err(|e| e.to_string())?;
+
+    let old_values = Product {
+        id: current.0,
+        name: current.1.clone(),
+        price: current.2 as f64 / 100.0,
+    };
 
     // Use provided values or existing ones
     let final_name = if let Some(new_name) = name {
@@ -252,29 +289,50 @@ pub fn update_product_with_pool(pool: &DbPool, id: i32, name: Option<String>, pr
 
     let price_cents = logic::price_to_cents(final_price);
 
-    let affected = conn.execute(
+    let affected = tx.execute(
         "UPDATE products SET name = ?1, price_cents = ?2 WHERE id = ?3",
-        rusqlite::params![final_name, price_cents, id],
+        params![final_name, price_cents, id],
     ).map_err(|e| e.to_string())?;
 
+    
+    tx.execute(
+        "INSERT INTO audit_log (action, table_name, record_id, old_values, new_values) VALUES (?, ?, ?, ?, ?)",
+        params![
+            "UPDATE",
+            "products",
+            id.to_string(),
+            serde_json::to_string(&old_values).unwrap_or_else(|_| String::new()),
+            serde_json::to_string(&Product { id, name: final_name.clone(), price: final_price }).unwrap_or_else(|_| String::new())
+            ],
+        ).map_err(|e| e.to_string())?;
+        
+    tx.commit().map_err(|e| e.to_string())?;
     if affected == 0 {
         return Err("Product not found".to_string());
     }
-
     Ok(Product { id, name: final_name, price: final_price })
 }
 
 pub fn delete_product_with_pool(pool: &DbPool, id: i32) -> Result<(), String> {
-    let conn = pool.get().map_err(|e| e.to_string())?;
+    let mut conn = pool.get().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
 
-    let affected = conn.execute(
+    let affected = tx.execute(
         "DELETE FROM products WHERE id = ?1",
-        rusqlite::params![id],
+        params![id],
     ).map_err(|e| e.to_string())?;
+
+    tx.execute(
+        "INSERT INTO audit_log (action, table_name, record_id) VALUES (?, ?, ?)",
+        params!["DELETE", "products", id.to_string()],
+    ).map_err(|e| e.to_string())?;
+    
+    tx.commit().map_err(|e| e.to_string())?;
 
     if affected == 0 {
         return Err("Product not found".to_string());
     }
+
 
     Ok(())
 }
