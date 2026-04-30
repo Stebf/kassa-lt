@@ -1,4 +1,6 @@
-mod commands;
+pub mod commands;
+pub mod models;
+pub mod logic;
 
 use r2d2::Pool;
 use tauri::Manager;

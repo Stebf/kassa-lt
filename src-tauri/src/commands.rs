@@ -1,9 +1,11 @@
 use chrono::Utc;
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use std::path::PathBuf;
 
 use r2d2::{ManageConnection, Pool};
+
+use crate::models::{CartItem, Order, OrderItem, Product};
+use crate::logic;
 
 pub struct SqliteManager {
     pub path: PathBuf,
@@ -33,38 +35,6 @@ impl ManageConnection for SqliteManager {
 }
 
 pub type DbPool = Pool<SqliteManager>;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Product {
-    pub id: i32,
-    pub name: String,
-    pub price: f64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CartItem {
-    pub id: i32,
-    pub name: String,
-    pub price: f64,
-    pub quantity: i32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Order {
-    pub id: i64,
-    pub uuid: String,
-    pub created_at: String,
-    pub total: f64,
-    pub payment_method: String,
-    pub items: Vec<OrderItem>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OrderItem {
-    pub name: String,
-    pub price: f64,
-    pub quantity: i32,
-}
 
 pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
     let conn = pool.get().map_err(|e| e.to_string())?;
@@ -97,8 +67,7 @@ pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-pub fn get_products(pool: tauri::State<'_, DbPool>) -> Result<Vec<Product>, String> {
+pub fn get_products_with_pool(pool: &DbPool) -> Result<Vec<Product>, String> {
     let conn = pool.get().map_err(|e| e.to_string())?;
 
     let mut stmt = conn.prepare("SELECT id, name, price_cents FROM products ORDER BY id")
@@ -117,66 +86,55 @@ pub fn get_products(pool: tauri::State<'_, DbPool>) -> Result<Vec<Product>, Stri
     Ok(products)
 }
 
-#[tauri::command]
-pub fn add_product(pool: tauri::State<'_, DbPool>, name: String, price: f64) -> Result<Product, String> {
-    if name.trim().is_empty() {
-        return Err("Product name cannot be empty".to_string());
-    }
-    
-    if price <= 0.0 {
-        return Err("Price must be greater than 0".to_string());
-    }
-    
+pub fn add_product_with_pool(pool: &DbPool, name: String, price: f64) -> Result<Product, String> {
+    let normalized_name = logic::normalize_product_name(&name)?;
+    logic::validate_price(price)?;
+
     let conn = pool.get().map_err(|e| e.to_string())?;
-    let price_cents = (price * 100.0).round() as i32;
-    
+    let price_cents = logic::price_to_cents(price);
+
     conn.execute(
         "INSERT INTO products (name, price_cents) VALUES (?1, ?2)",
-        rusqlite::params![name.trim(), price_cents],
+        rusqlite::params![normalized_name, price_cents],
     ).map_err(|e| e.to_string())?;
-    
+
     let id = conn.last_insert_rowid() as i32;
-    
+
     Ok(Product {
         id,
-        name,
+        name: normalized_name,
         price,
     })
 }
 
-#[tauri::command]
-pub fn checkout(pool: tauri::State<'_, DbPool>, items: Vec<CartItem>, payment_method: String) -> Result<Order, String> {
+pub fn checkout_with_pool(pool: &DbPool, items: Vec<CartItem>, payment_method: String) -> Result<Order, String> {
     if items.is_empty() {
         return Err("Cart is empty".to_string());
     }
-    
+
     let mut conn = pool.get().map_err(|e| e.to_string())?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
     let order_uuid = Uuid::new_v4().to_string();
     let created_at = Utc::now().to_rfc3339();
-    
-    let total_cents: i32 = items.iter()
-        .map(|item| ((item.price * item.quantity as f64) * 100.0).round() as i32)
-        .sum();
-    
-    // Insert order
+
+    let total_cents = logic::cart_total_cents(&items);
+
     tx.execute(
         "INSERT INTO orders (uuid, created_at, total_cents, payment_method) VALUES (?1, ?2, ?3, ?4)",
         rusqlite::params![&order_uuid, &created_at, total_cents, &payment_method],
     ).map_err(|e| e.to_string())?;
 
     let order_id = tx.last_insert_rowid();
-    
-    // Insert order items
+
     for item in &items {
-        let price_cents = (item.price * 100.0).round() as i32;
+        let price_cents = logic::price_to_cents(item.price);
         tx.execute(
             "INSERT INTO order_items (order_id, name, price_cents, quantity) VALUES (?1, ?2, ?3, ?4)",
             rusqlite::params![&order_id, &item.name, price_cents, item.quantity],
         ).map_err(|e| e.to_string())?;
     }
-    
+
     tx.commit().map_err(|e| e.to_string())?;
 
     Ok(Order {
@@ -185,16 +143,11 @@ pub fn checkout(pool: tauri::State<'_, DbPool>, items: Vec<CartItem>, payment_me
         created_at,
         total: total_cents as f64 / 100.0,
         payment_method,
-        items: items.iter().map(|i| OrderItem {
-            name: i.name.clone(),
-            price: i.price,
-            quantity: i.quantity,
-        }).collect(),
+        items: logic::order_items_from_cart(&items),
     })
 }
 
-#[tauri::command]
-pub fn get_orders(pool: tauri::State<'_, DbPool>) -> Result<Vec<Order>, String> {
+pub fn get_orders_with_pool(pool: &DbPool) -> Result<Vec<Order>, String> {
     let conn = pool.get().map_err(|e| e.to_string())?;
 
     let mut stmt = conn.prepare(
@@ -240,4 +193,24 @@ pub fn get_orders(pool: tauri::State<'_, DbPool>) -> Result<Vec<Order>, String> 
     }
 
     Ok(result)
+}
+
+#[tauri::command]
+pub fn get_products(pool: tauri::State<'_, DbPool>) -> Result<Vec<Product>, String> {
+    get_products_with_pool(pool.inner())
+}
+
+#[tauri::command]
+pub fn add_product(pool: tauri::State<'_, DbPool>, name: String, price: f64) -> Result<Product, String> {
+    add_product_with_pool(pool.inner(), name, price)
+}
+
+#[tauri::command]
+pub fn checkout(pool: tauri::State<'_, DbPool>, items: Vec<CartItem>, payment_method: String) -> Result<Order, String> {
+    checkout_with_pool(pool.inner(), items, payment_method)
+}
+
+#[tauri::command]
+pub fn get_orders(pool: tauri::State<'_, DbPool>) -> Result<Vec<Order>, String> {
+    get_orders_with_pool(pool.inner())
 }

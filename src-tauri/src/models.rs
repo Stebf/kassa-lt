@@ -1,0 +1,33 @@
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Product {
+    pub id: i32,
+    pub name: String,
+    pub price: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CartItem {
+    pub id: i32,
+    pub name: String,
+    pub price: f64,
+    pub quantity: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Order {
+    pub id: i64,
+    pub uuid: String,
+    pub created_at: String,
+    pub total: f64,
+    pub payment_method: String,
+    pub items: Vec<OrderItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrderItem {
+    pub name: String,
+    pub price: f64,
+    pub quantity: i32,
+}
