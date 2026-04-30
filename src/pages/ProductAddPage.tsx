@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, Button } from "@mui/material";
 import ProductForm from "../components/ProductForm";
 import { addProduct } from "../api";
 
@@ -21,6 +21,9 @@ export default function ProductAddPage() {
         Add Product
       </Typography>
       <ProductForm onSubmit={handleSubmit} />
+      <Button sx={{ mt: 2 }} onClick={() => navigate("/products")}>
+        Abbrechen
+      </Button>
     </Box>
   );
 }

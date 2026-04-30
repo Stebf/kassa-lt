@@ -107,11 +107,11 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
             disabled={loading}
           />
           <Button variant="contained" type="submit" disabled={isSubmitDisabled}>
-            {loading ? "Saving..." : "Save"}
+            {loading ? "Saving..." : "Speichern"}
           </Button>
           {onDelete && (
             <Button color="error" variant="outlined" onClick={handleDelete} disabled={loading}>
-              Delete
+              Löschen
             </Button>
           )}
         </Stack>

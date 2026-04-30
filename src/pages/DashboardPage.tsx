@@ -42,7 +42,7 @@ export default function DashboardPage() {
   return (
     <Box sx={{ p: 2 }}>
       <Typography variant="h5" sx={{ mb: 3 }}>
-        Order History
+        Bestellungen
       </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -56,10 +56,10 @@ export default function DashboardPage() {
               <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
                 <TableCell>Order ID</TableCell>
                 <TableCell>UUID</TableCell>
-                <TableCell>Date/Time</TableCell>
-                <TableCell>Total</TableCell>
-                <TableCell>Method</TableCell>
-                <TableCell>Items</TableCell>
+                <TableCell>Zeitpunkt</TableCell>
+                <TableCell>Summe</TableCell>
+                <TableCell>Methode</TableCell>
+                <TableCell>Produkte</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -72,7 +72,10 @@ export default function DashboardPage() {
                     {order.uuid}
                   </TableCell>
                   <TableCell>
-                    {new Date(order.created_at).toLocaleString()}
+                    {new Date(order.created_at).toLocaleString("de-DE", {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    })}
                   </TableCell>
                   <TableCell>€{order.total.toFixed(2)}</TableCell>
                   <TableCell>{order.payment_method}</TableCell>

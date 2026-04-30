@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import type { Product } from "../types/product";
 import { getProductById, updateProduct } from "../api";
 import ProductForm from "../components/ProductForm";
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, Button } from "@mui/material";
 
 export default function ProductEditPage() {
   const { id } = useParams();
@@ -26,9 +26,12 @@ export default function ProductEditPage() {
   return (
     <Box sx={{ maxWidth: 640, mx: "auto", mt: 4, p: 2 }}>
       <Typography variant="h5" sx={{ mb: 2 }}>
-        Edit Product
+        Produkt bearbeiten
       </Typography>
       <ProductForm initial={product} onSubmit={handleSubmit} isEdit={true} />
+      <Button sx={{ mt: 2 }} onClick={() => navigate("/products")}>
+        Abbrechen
+      </Button>
     </Box>
   );
 }

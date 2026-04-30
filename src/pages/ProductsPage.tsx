@@ -39,7 +39,7 @@ export default function ProductsPage() {
   }
 
   return (
-    <Box sx={{ maxWidth: 720, mx: "auto", mt: 4, p: 2 }}>
+    <Box sx={{ width: "80%", maxWidth: "none", mx: "auto", mt: 4, p: 2 }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
         <Typography variant="h5">Products</Typography>
       </Box>
