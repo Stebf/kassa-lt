@@ -48,7 +48,7 @@ export default function DashboardPage() {
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       {orders.length === 0 ? (
-        <Typography color="textSecondary">No orders yet</Typography>
+        <Typography color="textSecondary">Noch keine Bestellungen</Typography>
       ) : (
         <TableContainer component={Paper}>
           <Table>

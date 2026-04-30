@@ -56,7 +56,7 @@ export default function CategoryManager({ open, onClose, onChange }: Props) {
       const data = await getCategories();
       setCategories(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load categories");
+      setError(err instanceof Error ? err.message : "Fehler beim Laden der Kategorien");
     } finally {
       setLoading(false);
     }
@@ -72,7 +72,7 @@ export default function CategoryManager({ open, onClose, onChange }: Props) {
       await loadCategories();
       onChange?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add category");
+      setError(err instanceof Error ? err.message : "Fehler beim Hinzufügen der Kategorie");
     } finally {
       setSavingId(null);
     }
@@ -89,7 +89,7 @@ export default function CategoryManager({ open, onClose, onChange }: Props) {
       await loadCategories();
       onChange?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update category");
+      setError(err instanceof Error ? err.message : "Fehler beim Aktualisieren der Kategorie");
     } finally {
       setSavingId(null);
     }
@@ -97,11 +97,11 @@ export default function CategoryManager({ open, onClose, onChange }: Props) {
 
   async function handleDelete(id: number) {
     if (id === 1) {
-      setError("Default category cannot be deleted");
+      setError("Standardkategorie kann nicht gelöscht werden");
       return;
     }
 
-    const ok = window.confirm("Delete this category? Products will move to Default.");
+    const ok = window.confirm("Kategorie löschen? Produkte werden 'Default' zugeordnet.");
     if (!ok) {
       return;
     }
@@ -114,7 +114,7 @@ export default function CategoryManager({ open, onClose, onChange }: Props) {
       await loadCategories();
       onChange?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete category");
+      setError(err instanceof Error ? err.message : "Fehler beim Löschen der Kategorie");
     } finally {
       setSavingId(null);
     }
@@ -210,7 +210,7 @@ export default function CategoryManager({ open, onClose, onChange }: Props) {
               ))}
               {categories.length === 0 && !loading && (
                 <ListItem>
-                  <ListItemText primary="No categories" />
+                  <ListItemText primary="Keine Kategorien vorhanden" />
                 </ListItem>
               )}
             </List>

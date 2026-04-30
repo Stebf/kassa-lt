@@ -53,12 +53,12 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
         const categoryChanged = categoryId !== (initial?.category_id ?? 1);
 
         if (!updatedName && !updatedPrice && !categoryChanged) {
-          setError("Enter at least one field to update");
+          setError("Mindestens ein Feld muss geändert werden");
           return;
         }
 
         if (updatedPrice !== undefined && updatedPrice <= 0) {
-          setError("Price must be > 0");
+          setError("Preis muss > 0 sein");
           return;
         }
 
@@ -73,15 +73,15 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
         const parsedPrice = parseFloat(price);
         const selectedCategory = categories.find((c) => c.id === categoryId)?.name;
 
-        if (!trimmedName) throw new Error("Product name required");
-        if (parsedPrice <= 0) throw new Error("Price must be > 0");
-        if (!selectedCategory) throw new Error("Category required");
+        if (!trimmedName) throw new Error("Produktname benötigt");
+        if (parsedPrice <= 0) throw new Error("Preis muss > 0 sein");
+        if (!selectedCategory) throw new Error("Kategorie benötigt");
 
         await onSubmit(trimmedName, parsedPrice, selectedCategory, categoryId);
       }
-      setSuccess("Saved");
+      setSuccess("Gespeichert");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error saving product");
+      setError(err instanceof Error ? err.message : "Fehler beim Speichern des Produkts");
     } finally {
       setLoading(false);
     }
@@ -94,9 +94,9 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
     setLoading(true);
     try {
       await onDelete();
-      setSuccess("Deleted");
+      setSuccess("Gelöscht");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error deleting product");
+      setError(err instanceof Error ? err.message : "Fehler beim Löschen des Produkts");
     } finally {
       setLoading(false);
     }
@@ -112,28 +112,28 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
           {success && <Alert severity="success">{success}</Alert>}
           <TextField
             fullWidth
-            label="Product Name"
-            placeholder={isEdit ? "Leave empty to keep current" : ""}
+            label="Produktname"
+            placeholder={isEdit ? "Beibehalten" : ""}
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={loading}
           />
           <TextField
             fullWidth
-            label="Price (€)"
+            label="Preis (€)"
             type="number"
-            placeholder={isEdit ? "Leave empty to keep current" : ""}
+            placeholder={isEdit ? "Beibehalten" : ""}
             slotProps={{ htmlInput: { step: "0.01", min: "0" } }}
             value={price}
             onChange={(e) => setPrice(e.target.value)}
             disabled={loading}
           />
           <FormControl fullWidth disabled={loading || categoriesLoading}>
-            <InputLabel>Category</InputLabel>
+            <InputLabel>Kategorie</InputLabel>
             <Select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value as number)}
-              label="Category"
+              label="Kategorie"
             >
               {categories.map((cat) => (
                 <MenuItem key={cat.id} value={cat.id}>
@@ -143,7 +143,7 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
             </Select>
           </FormControl>
           <Button variant="contained" type="submit" disabled={isSubmitDisabled}>
-            {loading ? "Saving..." : "Speichern"}
+            {loading ? "wird gespeichert..." : "Speichern"}
           </Button>
           {onDelete && (
             <Button color="error" variant="outlined" onClick={handleDelete} disabled={loading}>

@@ -30,20 +30,20 @@ export default function ProductsPage() {
   }
 
   async function handleDelete(id: number) {
-    const ok = window.confirm("Delete this product?");
+    const ok = window.confirm("Dieses Produkt wirklich löschen?");
     if (!ok) return;
     try {
       await deleteProduct(id);
       await load();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Delete failed");
+      alert(err instanceof Error ? err.message : "Löschen fehlgeschlagen");
     }
   }
 
   return (
     <Box sx={{ width: "80%", maxWidth: "none", mx: "auto", mt: 4, p: 2 }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-        <Typography variant="h5">Products</Typography>
+        <Typography variant="h5">Produkte</Typography>
       </Box>
       <List>
         {products.map((p) => (
@@ -67,16 +67,16 @@ export default function ProductsPage() {
         ))}
         {products.length === 0 && !loading && (
           <ListItem>
-            <ListItemText primary="No products" />
+            <ListItemText primary="Keine Produkte vorhanden" />
           </ListItem>
         )}
       </List>
       <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
         <Button variant="contained" onClick={() => navigate("/products/add") }>
-          Add Product
+          Produkt hinzufügen
         </Button>
         <Button variant="outlined" onClick={() => setCategoriesOpen(true)}>
-          Manage Categories
+          Kategorien verwalten
         </Button>
       </Stack>
       <CategoryManager

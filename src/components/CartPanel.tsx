@@ -9,6 +9,11 @@ import {
   ListItemText
 } from "@mui/material";
 
+import DeleteIcon from '@mui/icons-material/Delete';
+import PaymentsIcon from '@mui/icons-material/Payments';
+import CreditCardIcon from '@mui/icons-material/CreditCard';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+
 import { useState } from "react";
 import { useCartStore } from "../store/cartStore";
 import { checkout } from "../api";
@@ -71,7 +76,9 @@ export default function CartPanel() {
 
   return (
     <Paper sx={{ p: 2, height: "100%" }}>
-      <Typography variant="h5">Warenkorb</Typography>
+      <Typography variant="h5">
+        <ShoppingCartIcon /> Warenkorb
+      </Typography>
 
       <List sx={{ minHeight: 300 }}>
         {items.map((item: CartItem) => (
@@ -87,7 +94,7 @@ export default function CartPanel() {
               variant="text"
               onClick={() => enqueueRemove(item)}
             >
-              -1
+              <DeleteIcon />
             </Button>
           </ListItem>
         ))}
@@ -111,7 +118,7 @@ export default function CartPanel() {
           onClick={() => setCheckoutDialogOpen(true)}
           disabled={!items.length || checkoutLoading}
         >
-          Bar bezahlen
+          <PaymentsIcon /> Bar bezahlen
         </Button>
 
         <Button
@@ -119,6 +126,7 @@ export default function CartPanel() {
           onClick={() => handleCheckout("card")}
           disabled={!items.length || checkoutLoading}
         >
+          <CreditCardIcon />
           Karte
         </Button>
 

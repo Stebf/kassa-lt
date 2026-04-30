@@ -159,7 +159,7 @@ export default function CheckoutDialog({
                 ))}
               </Box>
 
-              <Box
+              {/* <Box
                 sx={{
                   display: "grid",
                   gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
@@ -176,7 +176,7 @@ export default function CheckoutDialog({
                     -{value} €
                   </Button>
                 ))}
-              </Box>
+              </Box> */}
             </Stack>
           </Box>
 
