@@ -1,10 +1,10 @@
 [package]
-name = "app"
+name = "kassa-lt"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
-license = ""
-repository = ""
+description = "Kassa-LT packaged using Tauri"
+authors = ["Stebf"]
+license = "BSD-3-Clause license"
+repository = "https://github.com/Stebf/kassa-lt"
 edition = "2021"
 rust-version = "1.77.2"
 
