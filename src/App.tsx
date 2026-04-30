@@ -13,16 +13,16 @@ function App() {
       <AppBar position="static">
         <Toolbar>
           <Typography variant="h6" sx={{ flexGrow: 1, cursor: "pointer" }} onClick={() => navigate("/")}>
-            Kassa
+            Kassa-LT
           </Typography>
           <Button color="inherit" onClick={() => navigate("/")}>
-            POS
+            Kasse
           </Button>
           <Button color="inherit" onClick={() => navigate("/dashboard")}>
-            Orders
+            Bestellungen
           </Button>
-          <Button color="inherit" onClick={() => navigate("/products/new")}>
-            Add Product
+          <Button color="inherit" onClick={() => navigate("/products")}>
+            Produkte
           </Button>
         </Toolbar>
       </AppBar>

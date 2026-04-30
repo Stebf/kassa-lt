@@ -27,3 +27,18 @@ export async function checkout(
 export async function getOrders(): Promise<Order[]> {
   return invoke<Order[]>("get_orders");
 }
+
+export async function getProductById(id: number): Promise<Product> {
+  return invoke<Product>("get_product", { id });
+}
+
+export async function updateProduct(id: number, name?: string, price?: number): Promise<Product> {
+  // console.log("Updating product", { id, name, price });
+  if (name !== undefined && !name.trim()) throw new Error("Product name cannot be empty");
+  if (price !== undefined && price <= 0) throw new Error("Price must be > 0");
+  return invoke<Product>("update_product", { id, name: name?.trim(), price });
+}
+
+export async function deleteProduct(id: number): Promise<void> {
+  return invoke<void>("delete_product", { id });
+}

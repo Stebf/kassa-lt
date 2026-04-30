@@ -1,0 +1,79 @@
+import { useEffect, useState } from "react";
+import { Box, Typography, List, ListItem, ListItemText, IconButton, Divider, Button } from "@mui/material";
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import { useNavigate } from "react-router-dom";
+import { getProducts, deleteProduct } from "../api";
+import type { Product } from "../types/product";
+
+export default function ProductsPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const data = await getProducts();
+      setProducts(data);
+    } catch {
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDelete(id: number) {
+    const ok = window.confirm("Delete this product?");
+    if (!ok) return;
+    try {
+      await deleteProduct(id);
+      await load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Delete failed");
+    }
+  }
+
+  return (
+    <Box sx={{ maxWidth: 720, mx: "auto", mt: 4, p: 2 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+        <Typography variant="h5">Products</Typography>
+      </Box>
+      <List>
+        {products.map((p) => (
+          <div key={p.id}>
+            <ListItem
+              secondaryAction={
+                <>
+                  <IconButton edge="end" aria-label="edit" onClick={() => navigate(`/products/${p.id}/edit`)}>
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(p.id)}>
+                    <DeleteIcon />
+                  </IconButton>
+                </>
+              }
+            >
+              <ListItemText primary={p.name} secondary={`${p.price.toFixed(2)} €`} />
+            </ListItem>
+            <Divider />
+          </div>
+        ))}
+        {products.length === 0 && !loading && (
+          <ListItem>
+            <ListItemText primary="No products" />
+          </ListItem>
+        )}
+      </List>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+        <Button variant="contained" onClick={() => navigate("/products/add")}>
+          Add Product
+        </Button>
+      </Box>
+    </Box>
+  );
+}

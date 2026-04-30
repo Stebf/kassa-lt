@@ -1,11 +1,14 @@
 use app_lib::commands::{
     add_product_with_pool,
+    delete_product_with_pool,
     checkout_with_pool,
+    get_product_with_pool,
     get_orders_with_pool,
     get_products_with_pool,
     init_db_with_pool,
     DbPool,
     SqliteManager,
+    update_product_with_pool,
 };
 use app_lib::models::CartItem;
 use r2d2::Pool;
@@ -73,4 +76,58 @@ fn checkout_rejects_empty_cart() {
     let (_dir, pool) = test_pool();
 
     assert_eq!(checkout_with_pool(&pool, Vec::new(), "cash".to_string()).unwrap_err(), "Cart is empty");
+}
+
+#[test]
+fn add_and_get_product_round_trips_through_database() {
+    let (_dir, pool) = test_pool();
+
+    let created = add_product_with_pool(&pool, "Coffee".to_string(), 2.50).unwrap();
+    let fetched = get_product_with_pool(&pool, created.id).unwrap();
+
+    assert_eq!(fetched.id, created.id);
+    assert_eq!(fetched.name, "Coffee");
+    assert_eq!(fetched.price, 2.50);
+}
+
+#[test]
+fn update_product_can_change_name_only() {
+    let (_dir, pool) = test_pool();
+
+    let created = add_product_with_pool(&pool, "Tea".to_string(), 1.20).unwrap();
+    let updated = update_product_with_pool(&pool, created.id, Some("Green Tea".to_string()), None).unwrap();
+
+    assert_eq!(updated.id, created.id);
+    assert_eq!(updated.name, "Green Tea");
+    assert_eq!(updated.price, 1.20);
+
+    let fetched = get_product_with_pool(&pool, created.id).unwrap();
+    assert_eq!(fetched.name, "Green Tea");
+    assert_eq!(fetched.price, 1.20);
+}
+
+#[test]
+fn update_product_can_change_price_only() {
+    let (_dir, pool) = test_pool();
+
+    let created = add_product_with_pool(&pool, "Cake".to_string(), 3.40).unwrap();
+    let updated = update_product_with_pool(&pool, created.id, None, Some(4.10)).unwrap();
+
+    assert_eq!(updated.id, created.id);
+    assert_eq!(updated.name, "Cake");
+    assert_eq!(updated.price, 4.10);
+
+    let fetched = get_product_with_pool(&pool, created.id).unwrap();
+    assert_eq!(fetched.name, "Cake");
+    assert_eq!(fetched.price, 4.10);
+}
+
+#[test]
+fn delete_product_removes_row() {
+    let (_dir, pool) = test_pool();
+
+    let created = add_product_with_pool(&pool, "Latte".to_string(), 2.90).unwrap();
+    delete_product_with_pool(&pool, created.id).unwrap();
+
+    assert_eq!(get_product_with_pool(&pool, created.id).unwrap_err(), "Product not found");
 }
