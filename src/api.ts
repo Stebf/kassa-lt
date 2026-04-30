@@ -3,14 +3,19 @@ import type { Product } from "./types/product";
 import type { CartItem } from "./types/cart";
 import type { Order } from "./types/order";
 
+import type { Category } from "./types/category";
 export async function getProducts(): Promise<Product[]> {
   return invoke<Product[]>("get_products");
 }
 
-export async function addProduct(name: string, price: number): Promise<Product> {
+export async function getCategories(): Promise<Category[]> {
+  return invoke<Category[]>("get_categories");
+}
+
+export async function addProduct(name: string, price: number, category: string = "Default"): Promise<Product> {
   if (!name.trim()) throw new Error("Product name required");
   if (price <= 0) throw new Error("Price must be > 0");
-  return invoke<Product>("add_product", { name: name.trim(), price });
+  return invoke<Product>("add_product", { name: name.trim(), price, category });
 }
 
 export async function checkout(
@@ -32,13 +37,27 @@ export async function getProductById(id: number): Promise<Product> {
   return invoke<Product>("get_product", { id });
 }
 
-export async function updateProduct(id: number, name?: string, price?: number): Promise<Product> {
+export async function updateProduct(id: number, name?: string, price?: number, category?: string): Promise<Product> {
   // console.log("Updating product", { id, name, price });
   if (name !== undefined && !name.trim()) throw new Error("Product name cannot be empty");
   if (price !== undefined && price <= 0) throw new Error("Price must be > 0");
-  return invoke<Product>("update_product", { id, name: name?.trim(), price });
+  return invoke<Product>("update_product", { id, name: name?.trim(), price, category: category?.trim() });
 }
 
 export async function deleteProduct(id: number): Promise<void> {
   return invoke<void>("delete_product", { id });
+}
+
+export async function addCategory(name: string): Promise<Category> {
+  if (!name.trim()) throw new Error("Category name required");
+  return invoke<Category>("add_category", { name: name.trim() });
+}
+
+export async function updateCategory(id: number, name: string): Promise<Category> {
+  if (!name.trim()) throw new Error("Category name required");
+  return invoke<Category>("update_category", { id, name: name.trim() });
+}
+
+export async function deleteCategory(id: number): Promise<void> {
+  return invoke<void>("delete_category", { id });
 }

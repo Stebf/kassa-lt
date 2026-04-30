@@ -41,6 +41,10 @@ pub fn run() {
     .invoke_handler(tauri::generate_handler![
       commands::get_products,
       commands::add_product,
+      commands::get_categories,
+      commands::add_category,
+      commands::update_category,
+      commands::delete_category,
       commands::checkout,
       commands::get_orders,
       commands::get_product,

@@ -6,6 +6,7 @@ use rusqlite::params;
 use r2d2::{ManageConnection, Pool};
 
 use crate::models::{CartItem, Order, OrderItem, Product};
+use rusqlite::OptionalExtension;
 use crate::logic;
 
 pub struct SqliteManager {
@@ -41,10 +42,17 @@ pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
     let conn = pool.get().map_err(|e| e.to_string())?;
 
     conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS products (
-            id INTEGER PRIMARY KEY,
+        "CREATE TABLE IF NOT EXISTS categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE
+        );
+        
+        CREATE TABLE IF NOT EXISTS products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
-            price_cents INTEGER NOT NULL
+            price_cents INTEGER NOT NULL,
+            category_id INTEGER NOT NULL,
+            FOREIGN KEY(category_id) REFERENCES categories(id)
         );
         
         CREATE TABLE IF NOT EXISTS orders (
@@ -75,20 +83,33 @@ pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
     )
     .map_err(|e| e.to_string())?;
 
+    // Ensure default category exists
+    conn.execute(
+        "INSERT OR IGNORE INTO categories (id, name) VALUES (1, 'Default')",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
     Ok(())
 }
 
 pub fn get_products_with_pool(pool: &DbPool) -> Result<Vec<Product>, String> {
     let conn = pool.get().map_err(|e| e.to_string())?;
 
-    let mut stmt = conn.prepare("SELECT id, name, price_cents FROM products ORDER BY id")
-        .map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT p.id, p.name, p.price_cents, c.id, c.name 
+         FROM products p 
+         JOIN categories c ON p.category_id = c.id 
+         ORDER BY p.id"
+    ).map_err(|e| e.to_string())?;
 
     let products = stmt.query_map([], |row| {
         Ok(Product {
             id: row.get(0)?,
             name: row.get(1)?,
             price: row.get::<_, i32>(2)? as f64 / 100.0,
+            category_id: row.get(3)?,
+            category_name: row.get(4)?,
         })
     }).map_err(|e| e.to_string())?
         .collect::<Result<Vec<_>, _>>()
@@ -97,7 +118,23 @@ pub fn get_products_with_pool(pool: &DbPool) -> Result<Vec<Product>, String> {
     Ok(products)
 }
 
-pub fn add_product_with_pool(pool: &DbPool, name: String, price: f64) -> Result<Product, String> {
+pub fn get_category_by_name(tx: &rusqlite::Transaction, category_name: &str) -> Result<Option<i32>, String> {
+    let mut stmt = tx.prepare("SELECT id FROM categories WHERE name = ?1")
+        .map_err(|e| e.to_string())?;
+
+    let res = stmt.query_row(params![category_name], |row| row.get::<_, i32>(0)).optional().map_err(|e| e.to_string())?;
+    Ok(res)
+}
+
+pub fn create_category(tx: &rusqlite::Transaction, category_name: &str) -> Result<i32, String> {
+    tx.execute(
+        "INSERT INTO categories (name) VALUES (?1)",
+        params![category_name],
+    ).map_err(|e| e.to_string())?;
+    Ok(tx.last_insert_rowid() as i32)
+}
+
+pub fn add_product_with_pool(pool: &DbPool, name: String, price: f64, category: Option<String>) -> Result<Product, String> {
     let normalized_name = logic::normalize_product_name(&name)?;
     logic::validate_price(price)?;
 
@@ -105,16 +142,22 @@ pub fn add_product_with_pool(pool: &DbPool, name: String, price: f64) -> Result<
     let tx = conn.transaction().map_err(|e| e.to_string())?;
     let price_cents = logic::price_to_cents(price);
 
+    let category_name = category.unwrap_or_else(|| "Default".to_string());
+    let category_id = match get_category_by_name(&tx, &category_name)? {
+        Some(id) => id,
+        None => create_category(&tx, &category_name)?,
+    };
+
     tx.execute(
-        "INSERT INTO products (name, price_cents) VALUES (?1, ?2)",
-        params![normalized_name, price_cents],
+        "INSERT INTO products (name, price_cents, category_id) VALUES (?1, ?2, ?3)",
+        params![normalized_name, price_cents, category_id],
     ).map_err(|e| e.to_string())?;
 
     let id = tx.last_insert_rowid() as i32;
 
     tx.execute(
         "INSERT INTO audit_log (action, table_name, record_id, new_values) VALUES (?, ?, ?, ?)",
-        params!["INSERT", "products", id, serde_json::to_string(&Product { id, name: normalized_name.clone(), price }).unwrap_or_else(|_| String::new())],
+        params!["INSERT", "products", id, serde_json::to_string(&Product { id, name: normalized_name.clone(), price, category_id, category_name: category_name.clone() }).unwrap_or_else(|_| String::new())],
     ).map_err(|e| e.to_string())?;
 
     tx.commit().map_err(|e| e.to_string())?;
@@ -122,6 +165,8 @@ pub fn add_product_with_pool(pool: &DbPool, name: String, price: f64) -> Result<
         id,
         name: normalized_name,
         price,
+        category_id,
+        category_name,
     })
 }
 
@@ -228,8 +273,12 @@ pub fn get_orders_with_pool(pool: &DbPool) -> Result<Vec<Order>, String> {
 pub fn get_product_with_pool(pool: &DbPool, id: i32) -> Result<Product, String> {
     let conn = pool.get().map_err(|e| e.to_string())?;
 
-    let mut stmt = conn.prepare("SELECT id, name, price_cents FROM products WHERE id = ?1")
-        .map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT p.id, p.name, p.price_cents, c.id, c.name 
+         FROM products p 
+         JOIN categories c ON p.category_id = c.id 
+         WHERE p.id = ?1"
+    ).map_err(|e| e.to_string())?;
 
     let mut rows = stmt.query(rusqlite::params![id]).map_err(|e| e.to_string())?;
 
@@ -237,11 +286,15 @@ pub fn get_product_with_pool(pool: &DbPool, id: i32) -> Result<Product, String> 
         let id: i32 = row.get::<_, i32>(0).map_err(|e| e.to_string())?;
         let name: String = row.get::<_, String>(1).map_err(|e| e.to_string())?;
         let price_cents: i32 = row.get::<_, i32>(2).map_err(|e| e.to_string())?;
+        let category_id: i32 = row.get::<_, i32>(3).map_err(|e| e.to_string())?;
+        let category_name: String = row.get::<_, String>(4).map_err(|e| e.to_string())?;
 
         let product = Product {
             id,
             name,
             price: price_cents as f64 / 100.0,
+            category_id,
+            category_name,
         };
 
         Ok(product)
@@ -250,19 +303,24 @@ pub fn get_product_with_pool(pool: &DbPool, id: i32) -> Result<Product, String> 
     }
 }
 
-pub fn update_product_with_pool(pool: &DbPool, id: i32, name: Option<String>, price: Option<f64>) -> Result<Product, String> {
+pub fn update_product_with_pool(pool: &DbPool, id: i32, name: Option<String>, price: Option<f64>, category: Option<String>) -> Result<Product, String> {
     let mut conn = pool.get().map_err(|e| e.to_string())?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
     // Fetch current product to get existing values
     let current = tx.query_row(
-        "SELECT id, name, price_cents FROM products WHERE id = ?1",
+        "SELECT p.id, p.name, p.price_cents, p.category_id, c.name 
+         FROM products p 
+         JOIN categories c ON p.category_id = c.id 
+         WHERE p.id = ?1",
         params![id],
         |row| {
             Ok((
                 row.get::<_, i32>(0)?,
                 row.get::<_, String>(1)?,
                 row.get::<_, i32>(2)?,
+                row.get::<_, i32>(3)?,
+                row.get::<_, String>(4)?,
             ))
         },
     ).map_err(|e| e.to_string())?;
@@ -271,6 +329,8 @@ pub fn update_product_with_pool(pool: &DbPool, id: i32, name: Option<String>, pr
         id: current.0,
         name: current.1.clone(),
         price: current.2 as f64 / 100.0,
+        category_id: current.3,
+        category_name: current.4.clone(),
     };
 
     // Use provided values or existing ones
@@ -287,14 +347,24 @@ pub fn update_product_with_pool(pool: &DbPool, id: i32, name: Option<String>, pr
         current.2 as f64 / 100.0
     };
 
+    let final_category_name = if let Some(new_category) = category {
+        new_category
+    } else {
+        current.4
+    };
+
+    let final_category_id = match get_category_by_name(&tx, &final_category_name)? {
+        Some(id) => id,
+        None => create_category(&tx, &final_category_name)?,
+    };
+
     let price_cents = logic::price_to_cents(final_price);
 
     let affected = tx.execute(
-        "UPDATE products SET name = ?1, price_cents = ?2 WHERE id = ?3",
-        params![final_name, price_cents, id],
+        "UPDATE products SET name = ?1, price_cents = ?2, category_id = ?3 WHERE id = ?4",
+        params![final_name, price_cents, final_category_id, id],
     ).map_err(|e| e.to_string())?;
 
-    
     tx.execute(
         "INSERT INTO audit_log (action, table_name, record_id, old_values, new_values) VALUES (?, ?, ?, ?, ?)",
         params![
@@ -302,16 +372,17 @@ pub fn update_product_with_pool(pool: &DbPool, id: i32, name: Option<String>, pr
             "products",
             id.to_string(),
             serde_json::to_string(&old_values).unwrap_or_else(|_| String::new()),
-            serde_json::to_string(&Product { id, name: final_name.clone(), price: final_price }).unwrap_or_else(|_| String::new())
-            ],
-        ).map_err(|e| e.to_string())?;
+            serde_json::to_string(&Product { id, name: final_name.clone(), price: final_price, category_id: final_category_id, category_name: final_category_name.clone() }).unwrap_or_else(|_| String::new())
+        ],
+    ).map_err(|e| e.to_string())?;
         
     tx.commit().map_err(|e| e.to_string())?;
     if affected == 0 {
         return Err("Product not found".to_string());
     }
-    Ok(Product { id, name: final_name, price: final_price })
+    Ok(Product { id, name: final_name, price: final_price, category_id: final_category_id, category_name: final_category_name })
 }
+
 
 pub fn delete_product_with_pool(pool: &DbPool, id: i32) -> Result<(), String> {
     let mut conn = pool.get().map_err(|e| e.to_string())?;
@@ -337,14 +408,180 @@ pub fn delete_product_with_pool(pool: &DbPool, id: i32) -> Result<(), String> {
     Ok(())
 }
 
+pub fn add_category_with_pool(pool: &DbPool, name: String) -> Result<crate::models::Category, String> {
+    let normalized_name = logic::normalize_product_name(&name)?;
+
+    let mut conn = pool.get().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    if get_category_by_name(&tx, &normalized_name)?.is_some() {
+        return Err("Category already exists".to_string());
+    }
+
+    tx.execute(
+        "INSERT INTO categories (name) VALUES (?1)",
+        params![normalized_name],
+    ).map_err(|e| e.to_string())?;
+
+    let id = tx.last_insert_rowid() as i32;
+    let category = crate::models::Category { id, name: normalized_name.clone() };
+
+    tx.execute(
+        "INSERT INTO audit_log (action, table_name, record_id, new_values) VALUES (?, ?, ?, ?)",
+        params![
+            "INSERT",
+            "categories",
+            id.to_string(),
+            serde_json::to_string(&category).unwrap_or_else(|_| String::new()),
+        ],
+    ).map_err(|e| e.to_string())?;
+
+    tx.commit().map_err(|e| e.to_string())?;
+
+    Ok(category)
+}
+
+pub fn update_category_with_pool(pool: &DbPool, id: i32, name: String) -> Result<crate::models::Category, String> {
+    let normalized_name = logic::normalize_product_name(&name)?;
+
+    let mut conn = pool.get().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    let old_category = tx.query_row(
+        "SELECT id, name FROM categories WHERE id = ?1",
+        params![id],
+        |row| {
+            Ok(crate::models::Category {
+                id: row.get(0)?,
+                name: row.get(1)?,
+            })
+        },
+    ).optional().map_err(|e| e.to_string())?;
+
+    let old_category = match old_category {
+        Some(category) => category,
+        None => return Err("Category not found".to_string()),
+    };
+
+    if old_category.name != normalized_name {
+        if let Some(existing_id) = get_category_by_name(&tx, &normalized_name)? {
+            if existing_id != id {
+                return Err("Category already exists".to_string());
+            }
+        }
+    }
+
+    let affected = tx.execute(
+        "UPDATE categories SET name = ?1 WHERE id = ?2",
+        params![normalized_name, id],
+    ).map_err(|e| e.to_string())?;
+
+    if affected == 0 {
+        return Err("Category not found".to_string());
+    }
+
+    let category = crate::models::Category { id, name: normalized_name.clone() };
+
+    tx.execute(
+        "INSERT INTO audit_log (action, table_name, record_id, old_values, new_values) VALUES (?, ?, ?, ?, ?)",
+        params![
+            "UPDATE",
+            "categories",
+            id.to_string(),
+            serde_json::to_string(&old_category).unwrap_or_else(|_| String::new()),
+            serde_json::to_string(&category).unwrap_or_else(|_| String::new()),
+        ],
+    ).map_err(|e| e.to_string())?;
+
+    tx.commit().map_err(|e| e.to_string())?;
+
+    Ok(category)
+}
+
+pub fn delete_category_with_pool(pool: &DbPool, id: i32) -> Result<(), String> {
+    if id == 1 {
+        return Err("Default category cannot be deleted".to_string());
+    }
+
+    let mut conn = pool.get().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    let old_category = tx.query_row(
+        "SELECT id, name FROM categories WHERE id = ?1",
+        params![id],
+        |row| {
+            Ok(crate::models::Category {
+                id: row.get(0)?,
+                name: row.get(1)?,
+            })
+        },
+    ).optional().map_err(|e| e.to_string())?;
+
+    let old_category = match old_category {
+        Some(category) => category,
+        None => return Err("Category not found".to_string()),
+    };
+
+    tx.execute(
+        "UPDATE products SET category_id = 1 WHERE category_id = ?1",
+        params![id],
+    ).map_err(|e| e.to_string())?;
+
+    let affected = tx.execute(
+        "DELETE FROM categories WHERE id = ?1",
+        params![id],
+    ).map_err(|e| e.to_string())?;
+
+    if affected == 0 {
+        return Err("Category not found".to_string());
+    }
+
+    tx.execute(
+        "INSERT INTO audit_log (action, table_name, record_id, old_values) VALUES (?, ?, ?, ?)",
+        params![
+            "DELETE",
+            "categories",
+            id.to_string(),
+            serde_json::to_string(&old_category).unwrap_or_else(|_| String::new()),
+        ],
+    ).map_err(|e| e.to_string())?;
+
+    tx.commit().map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
 #[tauri::command]
 pub fn get_products(pool: tauri::State<'_, DbPool>) -> Result<Vec<Product>, String> {
     get_products_with_pool(pool.inner())
 }
 
+pub fn get_categories_with_pool(pool: &DbPool) -> Result<Vec<crate::models::Category>, String> {
+    let conn = pool.get().map_err(|e| e.to_string())?;
+
+    let mut stmt = conn.prepare("SELECT id, name FROM categories ORDER BY name")
+        .map_err(|e| e.to_string())?;
+
+    let categories = stmt.query_map([], |row| {
+        Ok(crate::models::Category {
+            id: row.get(0)?,
+            name: row.get(1)?,
+        })
+    }).map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(categories)
+}
+
 #[tauri::command]
-pub fn add_product(pool: tauri::State<'_, DbPool>, name: String, price: f64) -> Result<Product, String> {
-    add_product_with_pool(pool.inner(), name, price)
+pub fn add_product(pool: tauri::State<'_, DbPool>, name: String, price: f64, category: Option<String>) -> Result<Product, String> {
+    add_product_with_pool(pool.inner(), name, price, category)
+}
+
+#[tauri::command]
+pub fn get_categories(pool: tauri::State<'_, DbPool>) -> Result<Vec<crate::models::Category>, String> {
+    get_categories_with_pool(pool.inner())
 }
 
 #[tauri::command]
@@ -363,11 +600,26 @@ pub fn get_product(pool: tauri::State<'_, DbPool>, id: i32) -> Result<Product, S
 }
 
 #[tauri::command]
-pub fn update_product(pool: tauri::State<'_, DbPool>, id: i32, name: Option<String>, price: Option<f64>) -> Result<Product, String> {
-    update_product_with_pool(pool.inner(), id, name, price)
+pub fn update_product(pool: tauri::State<'_, DbPool>, id: i32, name: Option<String>, price: Option<f64>, category: Option<String>) -> Result<Product, String> {
+    update_product_with_pool(pool.inner(), id, name, price, category)
 }
 
 #[tauri::command]
 pub fn delete_product(pool: tauri::State<'_, DbPool>, id: i32) -> Result<(), String> {
     delete_product_with_pool(pool.inner(), id)
+}
+
+#[tauri::command]
+pub fn add_category(pool: tauri::State<'_, DbPool>, name: String) -> Result<crate::models::Category, String> {
+    add_category_with_pool(pool.inner(), name)
+}
+
+#[tauri::command]
+pub fn update_category(pool: tauri::State<'_, DbPool>, id: i32, name: String) -> Result<crate::models::Category, String> {
+    update_category_with_pool(pool.inner(), id, name)
+}
+
+#[tauri::command]
+pub fn delete_category(pool: tauri::State<'_, DbPool>, id: i32) -> Result<(), String> {
+    delete_category_with_pool(pool.inner(), id)
 }

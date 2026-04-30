@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
-import { Box, Typography, List, ListItem, ListItemText, IconButton, Divider, Button } from "@mui/material";
+import { Box, Typography, List, ListItem, ListItemText, IconButton, Divider, Button, Stack } from "@mui/material";
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useNavigate } from "react-router-dom";
 import { getProducts, deleteProduct } from "../api";
 import type { Product } from "../types/product";
+import CategoryManager from "../components/CategoryManager";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -69,11 +71,21 @@ export default function ProductsPage() {
           </ListItem>
         )}
       </List>
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-        <Button variant="contained" onClick={() => navigate("/products/add")}>
+      <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+        <Button variant="contained" onClick={() => navigate("/products/add") }>
           Add Product
         </Button>
-      </Box>
+        <Button variant="outlined" onClick={() => setCategoriesOpen(true)}>
+          Manage Categories
+        </Button>
+      </Stack>
+      <CategoryManager
+        open={categoriesOpen}
+        onClose={() => setCategoriesOpen(false)}
+        onChange={() => {
+          void load();
+        }}
+      />
     </Box>
   );
 }

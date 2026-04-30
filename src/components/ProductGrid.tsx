@@ -3,7 +3,8 @@ import {
   Paper,
   Button,
   CircularProgress,
-  Box
+  Box,
+  Typography,
 } from "@mui/material";
 
 import { useEffect, useState } from "react";
@@ -50,6 +51,20 @@ export default function ProductGrid({ reloadKey = 0 }: ProductGridProps) {
     enqueueAdd(selected);
   }
 
+  const productsByCategory = products.reduce((groups, product) => {
+    const categoryName = product.category_name || "Uncategorized";
+    const existing = groups.get(categoryName) ?? [];
+
+    existing.push(product);
+    groups.set(categoryName, existing);
+
+    return groups;
+  }, new Map<string, Product[]>());
+
+  const categoryEntries = Array.from(productsByCategory.entries()).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+
   if (loading) {
     return (
       <Box sx={{ p: 4 }}>
@@ -67,26 +82,39 @@ export default function ProductGrid({ reloadKey = 0 }: ProductGridProps) {
   }
 
   return (
-    <Grid container spacing={2}>
-      {products.map((item) => (
-        <Grid size={{ xs: 6, md: 4 }} key={item.id}>
-          <Paper elevation={1}>
-            <Button
-              fullWidth
-              onClick={() => handleAdd(item.id)}
-              sx={{
-                height: 100,
-                fontSize: 20,
-                fontWeight: 600
-              }}
-            >
-              {item.name}
-              <br />
-              {item.price.toFixed(2)} €
-            </Button>
-          </Paper>
-        </Grid>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+      {categoryEntries.map(([categoryName, categoryProducts]) => (
+        <Box key={categoryName}>
+          <Typography variant="h6" sx={{ mb: 1, px: 0.5 }}>
+            {categoryName}
+          </Typography>
+          <Grid container spacing={2}>
+            {categoryProducts.map((item) => (
+              <Grid size={{ xs: 6, md: 4 }} key={item.id}>
+                <Paper elevation={1}>
+                  <Button
+                    fullWidth
+                    onClick={() => handleAdd(item.id)}
+                    sx={{
+                      height: 100,
+                      fontSize: 20,
+                      fontWeight: 600,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      textTransform: "none",
+                    }}
+                  >
+                    <span>{item.name}</span>
+                    <span>{item.price.toFixed(2)} €</span>
+                  </Button>
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
       ))}
-    </Grid>
+    </Box>
   );
 }
