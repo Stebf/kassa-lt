@@ -212,6 +212,14 @@ export default function CheckoutDialog({
         <Button
           variant="contained"
           size="large"
+          onClick={handleConfirm}
+          sx={{ minWidth: 120 }}
+        >
+          Passend
+        </Button>
+        <Button
+          variant="contained"
+          size="large"
           disabled={!canPay}
           onClick={handleConfirm}
           sx={{ minWidth: 120 }}
