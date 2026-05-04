@@ -28,6 +28,8 @@ uuid = { version = "1.6", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 tokio = { version = "1", features = ["full"] }
 r2d2 = "0.8"
+csv = "1.4.0"
+tauri-plugin-fs = "2"
 
 [dev-dependencies]
 tempfile = "3"

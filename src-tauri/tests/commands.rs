@@ -1,18 +1,8 @@
 use app_lib::commands::{
-    add_category_with_pool,
-    add_product_with_pool,
-    delete_category_with_pool,
-    delete_product_with_pool,
-    checkout_with_pool,
-    get_product_with_pool,
-    get_categories_with_pool,
-    get_orders_with_pool,
-    get_products_with_pool,
-    init_db_with_pool,
-    DbPool,
-    SqliteManager,
-    update_category_with_pool,
-    update_product_with_pool,
+    add_category_with_pool, add_product_with_pool, checkout_with_pool, delete_category_with_pool,
+    delete_product_with_pool, get_categories_with_pool, get_orders_with_pool,
+    get_product_with_pool, get_products_with_pool, init_db_with_pool, update_category_with_pool,
+    update_product_with_pool, DbPool, SqliteManager,
 };
 use app_lib::models::CartItem;
 use r2d2::Pool;
@@ -31,7 +21,8 @@ fn test_pool() -> (TempDir, DbPool) {
 fn add_product_persists_and_trims_name() {
     let (_dir, pool) = test_pool();
 
-    let product = add_product_with_pool(&pool, "  Espresso  ".to_string(), 2.5, None).expect("add product");
+    let product =
+        add_product_with_pool(&pool, "  Espresso  ".to_string(), 2.5, None).expect("add product");
 
     assert_eq!(product.name, "Espresso");
     assert_eq!(product.price, 2.5);
@@ -46,8 +37,14 @@ fn add_product_persists_and_trims_name() {
 fn add_product_rejects_invalid_input() {
     let (_dir, pool) = test_pool();
 
-    assert_eq!(add_product_with_pool(&pool, "   ".to_string(), 1.0, None).unwrap_err(), "Product name cannot be empty");
-    assert_eq!(add_product_with_pool(&pool, "Tea".to_string(), 0.0, None).unwrap_err(), "Price must be greater than 0");
+    assert_eq!(
+        add_product_with_pool(&pool, "   ".to_string(), 1.0, None).unwrap_err(),
+        "Product name cannot be empty"
+    );
+    assert_eq!(
+        add_product_with_pool(&pool, "Tea".to_string(), 0.0, None).unwrap_err(),
+        "Price must be greater than 0"
+    );
 }
 
 #[test]
@@ -55,8 +52,18 @@ fn checkout_persists_order_and_items() {
     let (_dir, pool) = test_pool();
 
     let items = vec![
-        CartItem { id: 1, name: "Tea".to_string(), price: 1.25, quantity: 2 },
-        CartItem { id: 2, name: "Cake".to_string(), price: 2.10, quantity: 1 },
+        CartItem {
+            id: 1,
+            name: "Tea".to_string(),
+            price: 1.25,
+            quantity: 2,
+        },
+        CartItem {
+            id: 2,
+            name: "Cake".to_string(),
+            price: 2.10,
+            quantity: 1,
+        },
     ];
 
     let order = checkout_with_pool(&pool, items.clone(), "card".to_string()).expect("checkout");
@@ -79,7 +86,10 @@ fn checkout_persists_order_and_items() {
 fn checkout_rejects_empty_cart() {
     let (_dir, pool) = test_pool();
 
-    assert_eq!(checkout_with_pool(&pool, Vec::new(), "cash".to_string()).unwrap_err(), "Cart is empty");
+    assert_eq!(
+        checkout_with_pool(&pool, Vec::new(), "cash".to_string()).unwrap_err(),
+        "Cart is empty"
+    );
 }
 
 #[test]
@@ -99,7 +109,9 @@ fn update_product_can_change_name_only() {
     let (_dir, pool) = test_pool();
 
     let created = add_product_with_pool(&pool, "Tea".to_string(), 1.20, None).unwrap();
-    let updated = update_product_with_pool(&pool, created.id, Some("Green Tea".to_string()), None, None).unwrap();
+    let updated =
+        update_product_with_pool(&pool, created.id, Some("Green Tea".to_string()), None, None)
+            .unwrap();
 
     assert_eq!(updated.id, created.id);
     assert_eq!(updated.name, "Green Tea");
@@ -133,7 +145,10 @@ fn delete_product_removes_row() {
     let created = add_product_with_pool(&pool, "Latte".to_string(), 2.90, None).unwrap();
     delete_product_with_pool(&pool, created.id).unwrap();
 
-    assert_eq!(get_product_with_pool(&pool, created.id).unwrap_err(), "Product not found");
+    assert_eq!(
+        get_product_with_pool(&pool, created.id).unwrap_err(),
+        "Product not found"
+    );
 }
 
 #[test]
@@ -166,13 +181,16 @@ fn update_category_changes_name() {
     let (_dir, pool) = test_pool();
 
     let category = add_category_with_pool(&pool, "Drinks".to_string()).expect("add category");
-    let updated = update_category_with_pool(&pool, category.id, "Beverages".to_string()).expect("update category");
+    let updated = update_category_with_pool(&pool, category.id, "Beverages".to_string())
+        .expect("update category");
 
     assert_eq!(updated.id, category.id);
     assert_eq!(updated.name, "Beverages");
 
     let categories = get_categories_with_pool(&pool).expect("fetch categories");
-    assert!(categories.iter().any(|item| item.id == category.id && item.name == "Beverages"));
+    assert!(categories
+        .iter()
+        .any(|item| item.id == category.id && item.name == "Beverages"));
 }
 
 #[test]
@@ -180,7 +198,9 @@ fn delete_category_reassigns_products_to_default() {
     let (_dir, pool) = test_pool();
 
     let category = add_category_with_pool(&pool, "Specials".to_string()).expect("add category");
-    let product = add_product_with_pool(&pool, "Soup".to_string(), 4.20, Some(category.name.clone())).expect("add product");
+    let product =
+        add_product_with_pool(&pool, "Soup".to_string(), 4.20, Some(category.name.clone()))
+            .expect("add product");
 
     delete_category_with_pool(&pool, category.id).expect("delete category");
 
@@ -196,5 +216,8 @@ fn delete_category_reassigns_products_to_default() {
 fn default_category_cannot_be_deleted() {
     let (_dir, pool) = test_pool();
 
-    assert_eq!(delete_category_with_pool(&pool, 1).unwrap_err(), "Default category cannot be deleted");
+    assert_eq!(
+        delete_category_with_pool(&pool, 1).unwrap_err(),
+        "Default category cannot be deleted"
+    );
 }

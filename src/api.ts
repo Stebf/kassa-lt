@@ -61,3 +61,24 @@ export async function updateCategory(id: number, name: string): Promise<Category
 export async function deleteCategory(id: number): Promise<void> {
   return invoke<void>("delete_category", { id });
 }
+
+export async function exportOrders(): Promise<string> {
+  return invoke<string>("export_orders_csv", { orders: await getOrders() });
+}
+
+export async function exportCSV(csv = "", fileName = "orders.csv"): Promise<void> {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+
+  try {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}

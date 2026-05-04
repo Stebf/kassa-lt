@@ -11,8 +11,9 @@ import {
   Typography,
   CircularProgress,
   Alert,
+  Button,
 } from "@mui/material";
-import { getOrders } from "../api";
+import { getOrders, exportCSV, exportOrders } from "../api";
 import type { Order } from "../types/order";
 
 export default function DashboardPage() {
@@ -44,6 +45,11 @@ export default function DashboardPage() {
       <Typography variant="h5" sx={{ mb: 3 }}>
         Bestellungen
       </Typography>
+      <Box sx={{ mb: 2 }}>
+        <Button variant="contained" onClick={async () => exportCSV(await exportOrders())}>
+          Export
+        </Button>
+      </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 

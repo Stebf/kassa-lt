@@ -47,14 +47,23 @@ mod tests {
     #[test]
     fn normalize_product_name_trims_and_rejects_empty_names() {
         assert_eq!(normalize_product_name("  Coffee  ").unwrap(), "Coffee");
-        assert_eq!(normalize_product_name("   ").unwrap_err(), "Product name cannot be empty");
+        assert_eq!(
+            normalize_product_name("   ").unwrap_err(),
+            "Product name cannot be empty"
+        );
     }
 
     #[test]
     fn validate_price_rejects_non_positive_values() {
         assert!(validate_price(1.25).is_ok());
-        assert_eq!(validate_price(0.0).unwrap_err(), "Price must be greater than 0");
-        assert_eq!(validate_price(-0.5).unwrap_err(), "Price must be greater than 0");
+        assert_eq!(
+            validate_price(0.0).unwrap_err(),
+            "Price must be greater than 0"
+        );
+        assert_eq!(
+            validate_price(-0.5).unwrap_err(),
+            "Price must be greater than 0"
+        );
     }
 
     #[test]
@@ -63,8 +72,18 @@ mod tests {
         assert_eq!(price_to_cents(1.235), 124);
 
         let items = vec![
-            CartItem { id: 1, name: "Tea".to_string(), price: 1.25, quantity: 2 },
-            CartItem { id: 2, name: "Cake".to_string(), price: 2.10, quantity: 1 },
+            CartItem {
+                id: 1,
+                name: "Tea".to_string(),
+                price: 1.25,
+                quantity: 2,
+            },
+            CartItem {
+                id: 2,
+                name: "Cake".to_string(),
+                price: 2.10,
+                quantity: 1,
+            },
         ];
 
         assert_eq!(cart_total_cents(&items), 460);
@@ -72,7 +91,12 @@ mod tests {
 
     #[test]
     fn order_items_are_copied_from_cart_items() {
-        let items = vec![CartItem { id: 1, name: "Water".to_string(), price: 0.99, quantity: 3 }];
+        let items = vec![CartItem {
+            id: 1,
+            name: "Water".to_string(),
+            price: 0.99,
+            quantity: 3,
+        }];
 
         let order_items = order_items_from_cart(&items);
 
