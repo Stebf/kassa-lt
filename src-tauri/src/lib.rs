@@ -1,10 +1,10 @@
+pub mod database;
 pub mod commands;
 pub mod exports;
 pub mod logic;
 pub mod models;
 
-use crate::commands::DbPool;
-use crate::commands::SqliteManager;
+use crate::database::{DbPool, SqliteManager, init_db_with_pool};
 use r2d2::Pool;
 use tauri::Manager;
 
@@ -27,7 +27,7 @@ pub fn run() {
             let pool: DbPool = Pool::new(manager).map_err(|e| e.to_string())?;
 
             // Initialize database schema using the pool
-            if let Err(e) = commands::init_db_with_pool(&pool) {
+            if let Err(e) = init_db_with_pool(&pool) {
                 eprintln!("Failed to initialize database: {}", e);
             }
 
