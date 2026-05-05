@@ -6,6 +6,7 @@ pub mod models;
 pub mod config;
 
 use crate::database::{DbPool, SqliteManager, init_db_with_pool};
+use log::{error, info};
 use r2d2::Pool;
 use tauri::Manager;
 
@@ -14,24 +15,7 @@ pub fn run() {
     tauri::Builder::default()
     .plugin(tauri_plugin_fs::init())
     .setup(|app| {
-    // Create DB path and connection pool
         let app_handle = app.handle();
-        let app_data_dir = setup_app_data_dir(app_handle)?;
-        config::init_app_config(&app_data_dir)?;
-        let db_path = app_data_dir.join("kassalt.db");
-        println!("Using database at: {:?}", db_path);
-
-        let manager = SqliteManager::file(db_path);
-        let pool: DbPool = Pool::new(manager).map_err(|e| e.to_string())?;
-
-        // Initialize database schema using the pool
-        if let Err(e) = init_db_with_pool(&pool) {
-            eprintln!("Failed to initialize database: {}", e);
-        }
-
-        // Make the pool available as managed state
-        app.manage(pool);
-
         if cfg!(debug_assertions) {
             app_handle.plugin(
                 tauri_plugin_log::Builder::default()
@@ -39,6 +23,24 @@ pub fn run() {
                     .build(),
             )?;
         }
+
+        // Create DB path and connection pool
+        let app_data_dir = setup_app_data_dir(app_handle)?;
+        config::init_app_config(&app_data_dir)?;
+        let db_path = app_data_dir.join("kassalt.db");
+        info!("Using database at: {:?}", db_path);
+
+        let manager = SqliteManager::file(db_path);
+        let pool: DbPool = Pool::new(manager).map_err(|e| e.to_string())?;
+
+        // Initialize database schema using the pool
+        if let Err(e) = init_db_with_pool(&pool) {
+            error!("Failed to initialize database: {}", e);
+        }
+
+        // Make the pool available as managed state
+        app.manage(pool);
+
         Ok(())
     })
     .invoke_handler(tauri::generate_handler![

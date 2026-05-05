@@ -1,3 +1,5 @@
+use log::info;
+
 use crate::models::Order;
 
 pub fn create_csv(orders: &[Order]) -> Result<String, String> {
@@ -27,5 +29,6 @@ pub fn create_csv(orders: &[Order]) -> Result<String, String> {
 
 #[tauri::command]
 pub fn export_orders_csv(orders: Vec<Order>) -> Result<String, String> {
+    info!("Exporting {} orders to CSV", orders.len());
     create_csv(&orders)
 }

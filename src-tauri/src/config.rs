@@ -1,3 +1,4 @@
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::RwLock;
@@ -34,24 +35,18 @@ impl AppConfig {
 }
 
 
-pub fn create_or_load_config(config_path: &PathBuf) -> Result<AppConfig, String> {
-    if config_path.exists() {
-        AppConfig::load_from_file(config_path)
-    } else {
-        let default_config = AppConfig::default();
-        default_config.save_to_file(config_path)?;
-        Ok(default_config)
-    }
-}
-
 pub fn init_app_config(app_data_dir: &std::path::PathBuf) -> Result<(), String> {
     let config_path = app_data_dir.clone().join("config.yaml");
 
     let config = match AppConfig::load_from_file(&config_path) {
-        Ok(c) => c,
+        Ok(c) => {
+            info!("Loaded config from file: {:?}", config_path);
+            c
+        },
         Err(_) => {
             let default = AppConfig::default();
             default.save_to_file(&config_path)?;
+            info!("Created default config file: {:?}", config_path);
             default
         }
     };
