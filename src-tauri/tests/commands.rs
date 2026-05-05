@@ -1,4 +1,4 @@
-use app_lib::commands::{
+use app_lib::database::{
     add_category_with_pool, add_product_with_pool, checkout_with_pool, delete_category_with_pool,
     delete_product_with_pool, get_categories_with_pool, get_orders_with_pool,
     get_product_with_pool, get_products_with_pool, init_db_with_pool, update_category_with_pool,

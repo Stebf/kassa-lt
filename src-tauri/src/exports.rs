@@ -2,7 +2,7 @@ use crate::models::Order;
 
 pub fn create_csv(orders: &[Order]) -> Result<String, String> {
     let mut wtr = csv::Writer::from_writer(vec![]);
-    wtr.write_record(&["Order ID", "Date", "Total (cents)", "Items"])
+    wtr.write_record(["Order ID", "Date", "Total (cents)", "Items"])
         .map_err(|e| e.to_string())?;
 
     for order in orders {
@@ -22,7 +22,7 @@ pub fn create_csv(orders: &[Order]) -> Result<String, String> {
     }
 
     let data = wtr.into_inner().map_err(|e| e.to_string())?;
-    Ok(String::from_utf8(data).map_err(|e| e.to_string())?)
+    String::from_utf8(data).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
