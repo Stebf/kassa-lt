@@ -18,7 +18,7 @@
     "@tauri-apps/api": "^2.11.0",
     "@tauri-apps/plugin-fs": "^2.5.0",
     "axios": "^1.15.2",
-    "react": "^19.2.5",
+    "react": "^19.2.6",
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.14.2",
     "zustand": "^5.0.12"
