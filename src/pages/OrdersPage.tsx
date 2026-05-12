@@ -16,7 +16,7 @@ import {
 import { getOrders, exportCSV, exportOrders } from "../api";
 import type { Order } from "../types/order";
 
-export default function DashboardPage() {
+export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
