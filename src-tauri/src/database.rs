@@ -647,7 +647,6 @@ pub fn delete_category_with_pool(pool: &DbPool, id: i32) -> Result<(), String> {
     Ok(())
 }
 
-
 pub fn get_categories_with_pool(pool: &DbPool) -> Result<Vec<crate::models::Category>, String> {
     let conn = pool.get().map_err(|e| e.to_string())?;
 
