@@ -1,8 +1,8 @@
 use app_lib::database::{
     add_category_with_pool, add_product_with_pool, checkout_with_pool, delete_category_with_pool,
     delete_product_with_pool, get_categories_with_pool, get_orders_with_pool,
-    get_product_with_pool, get_products_with_pool, init_db_with_pool, update_category_with_pool,
-    update_product_with_pool, DbPool, SqliteManager,
+    get_product_sales_count_with_pool, get_product_with_pool, get_products_with_pool,
+    init_db_with_pool, update_category_with_pool, update_product_with_pool, DbPool, SqliteManager,
 };
 use app_lib::models::CartItem;
 use r2d2::Pool;
@@ -220,4 +220,40 @@ fn default_category_cannot_be_deleted() {
         delete_category_with_pool(&pool, 1).unwrap_err(),
         "Default category cannot be deleted"
     );
+}
+
+#[test]
+fn get_product_sales_count_returns_correct_counts() {
+    let (_dir, pool) = test_pool();
+
+    let order_1 = vec![
+        CartItem {
+            id: 1,
+            name: "Tea".to_string(),
+            price: 1.25,
+            quantity: 2,
+        },
+        CartItem {
+            id: 2,
+            name: "Cake".to_string(),
+            price: 2.10,
+            quantity: 1,
+        },
+    ];
+    let order_2 = vec![CartItem {
+        id: 1,
+        name: "Tea".to_string(),
+        price: 1.25,
+        quantity: 4,
+    }];
+
+    checkout_with_pool(&pool, order_1.clone(), "card".to_string()).expect("checkout");
+    checkout_with_pool(&pool, order_2.clone(), "card".to_string()).expect("checkout");
+
+    let counts = get_product_sales_count_with_pool(&pool).expect("get sales count");
+    assert_eq!(counts.len(), 2);
+    let tea_count = counts.iter().find(|c| c.product_name == "Tea").unwrap();
+    let cake_count = counts.iter().find(|c| c.product_name == "Cake").unwrap();
+    assert_eq!(tea_count.count, 6);
+    assert_eq!(cake_count.count, 1);
 }

@@ -39,3 +39,9 @@ pub struct OrderItem {
     pub price: f64,
     pub quantity: i32,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProductSalesCount {
+    pub product_name: String,
+    pub count: i32,
+}

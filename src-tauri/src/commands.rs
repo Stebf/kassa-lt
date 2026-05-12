@@ -1,10 +1,10 @@
 use crate::database::{
     add_category_with_pool, add_product_with_pool, checkout_with_pool, delete_category_with_pool,
     delete_product_with_pool, get_categories_with_pool, get_orders_with_pool,
-    get_product_with_pool, get_products_with_pool, update_category_with_pool,
-    update_product_with_pool, DbPool,
+    get_product_sales_count_with_pool, get_product_with_pool, get_products_with_pool,
+    update_category_with_pool, update_product_with_pool, DbPool,
 };
-use crate::models::{CartItem, Order, Product};
+use crate::models::{CartItem, Order, Product, ProductSalesCount};
 
 #[tauri::command]
 pub fn get_products(pool: tauri::State<'_, DbPool>) -> Result<Vec<Product>, String> {
@@ -40,6 +40,13 @@ pub fn checkout(
 #[tauri::command]
 pub fn get_orders(pool: tauri::State<'_, DbPool>) -> Result<Vec<Order>, String> {
     get_orders_with_pool(pool.inner())
+}
+
+#[tauri::command]
+pub fn get_product_sales_count(
+    pool: tauri::State<'_, DbPool>,
+) -> Result<Vec<ProductSalesCount>, String> {
+    get_product_sales_count_with_pool(pool.inner())
 }
 
 #[tauri::command]
