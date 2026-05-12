@@ -14,7 +14,7 @@ export async function getCategories(): Promise<Category[]> {
 
 export async function addProduct(name: string, price: number, category: string = "Default"): Promise<Product> {
   if (!name.trim()) throw new Error("Product name required");
-  if (price <= 0) throw new Error("Price must be > 0");
+  if (price < 0) throw new Error("Price must be >= 0");
   return invoke<Product>("add_product", { name: name.trim(), price, category });
 }
 
@@ -40,7 +40,7 @@ export async function getProductById(id: number): Promise<Product> {
 export async function updateProduct(id: number, name?: string, price?: number, category?: string): Promise<Product> {
   // console.log("Updating product", { id, name, price });
   if (name !== undefined && !name.trim()) throw new Error("Product name cannot be empty");
-  if (price !== undefined && price <= 0) throw new Error("Price must be > 0");
+  if (price !== undefined && price < 0) throw new Error("Price must be >= 0");
   return invoke<Product>("update_product", { id, name: name?.trim(), price, category: category?.trim() });
 }
 

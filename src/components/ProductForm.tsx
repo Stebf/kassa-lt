@@ -57,8 +57,8 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
           return;
         }
 
-        if (updatedPrice !== undefined && updatedPrice <= 0) {
-          setError("Preis muss > 0 sein");
+        if (updatedPrice !== undefined && updatedPrice < 0) {
+          setError("Preis muss >= 0 sein");
           return;
         }
 
@@ -74,7 +74,7 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
         const selectedCategory = categories.find((c) => c.id === categoryId)?.name;
 
         if (!trimmedName) throw new Error("Produktname benötigt");
-        if (parsedPrice <= 0) throw new Error("Preis muss > 0 sein");
+        if (parsedPrice < 0) throw new Error("Preis muss >= 0 sein");
         if (!selectedCategory) throw new Error("Kategorie benötigt");
 
         await onSubmit(trimmedName, parsedPrice, selectedCategory, categoryId);
