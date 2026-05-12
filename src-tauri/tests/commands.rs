@@ -42,8 +42,8 @@ fn add_product_rejects_invalid_input() {
         "Product name cannot be empty"
     );
     assert_eq!(
-        add_product_with_pool(&pool, "Tea".to_string(), 0.0, None).unwrap_err(),
-        "Price must be greater than 0"
+        add_product_with_pool(&pool, "Tea".to_string(), -0.1, None).unwrap_err(),
+        "Price must be greater than or equal to 0"
     );
 }
 

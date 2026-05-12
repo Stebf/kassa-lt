@@ -56,10 +56,7 @@ mod tests {
     #[test]
     fn validate_price_rejects_negative_values() {
         assert!(validate_price(1.25).is_ok());
-        assert_eq!(
-            validate_price(0.0).unwrap_err(),
-            "Price must be greater than or equal to 0"
-        );
+        assert!(validate_price(0.0).is_ok());
         assert_eq!(
             validate_price(-0.5).unwrap_err(),
             "Price must be greater than or equal to 0"
