@@ -11,8 +11,8 @@ pub fn normalize_product_name(name: &str) -> Result<String, String> {
 }
 
 pub fn validate_price(price: f64) -> Result<(), String> {
-    if price <= 0.0 {
-        return Err("Price must be greater than 0".to_string());
+    if price < 0.0 {
+        return Err("Price must be greater than or equal to 0".to_string());
     }
 
     Ok(())
@@ -54,15 +54,15 @@ mod tests {
     }
 
     #[test]
-    fn validate_price_rejects_non_positive_values() {
+    fn validate_price_rejects_negative_values() {
         assert!(validate_price(1.25).is_ok());
         assert_eq!(
             validate_price(0.0).unwrap_err(),
-            "Price must be greater than 0"
+            "Price must be greater than or equal to 0"
         );
         assert_eq!(
             validate_price(-0.5).unwrap_err(),
-            "Price must be greater than 0"
+            "Price must be greater than or equal to 0"
         );
     }
 
