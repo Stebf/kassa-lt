@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { Product } from "./types/product";
 import type { CartItem } from "./types/cart";
-import type { Order } from "./types/order";
+import type { Order, ProductSalesCount } from "./types/order";
 
 import type { Category } from "./types/category";
 export async function getProducts(): Promise<Product[]> {
@@ -31,6 +31,10 @@ export async function checkout(
 
 export async function getOrders(): Promise<Order[]> {
   return invoke<Order[]>("get_orders");
+}
+
+export async function getProductSalesCount(): Promise<ProductSalesCount[]> {
+  return invoke<ProductSalesCount[]>("get_product_sales_count");
 }
 
 export async function getProductById(id: number): Promise<Product> {

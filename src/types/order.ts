@@ -12,3 +12,8 @@ export type Order = {
   payment_method: "cash" | "card";
   items: OrderItem[];
 };
+
+export type ProductSalesCount = {
+  product_name: string;
+  count: number;
+};

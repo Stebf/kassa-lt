@@ -54,6 +54,7 @@ pub fn run() {
             commands::checkout,
             commands::get_orders,
             commands::get_product,
+            commands::get_product_sales_count,
             commands::update_product,
             commands::delete_product,
             exports::export_orders_csv,

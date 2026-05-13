@@ -1,12 +1,14 @@
 use chrono::Utc;
 use rusqlite::params;
 use rusqlite::OptionalExtension;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use uuid::Uuid;
 
 use r2d2::{ManageConnection, Pool};
 
 use crate::logic;
+use crate::models::ProductSalesCount;
 use crate::models::{CartItem, Order, OrderItem, Product};
 
 pub struct SqliteManager {
@@ -46,7 +48,7 @@ pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE
         );
-        
+
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -54,7 +56,7 @@ pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
             category_id INTEGER NOT NULL,
             FOREIGN KEY(category_id) REFERENCES categories(id)
         );
-        
+
         CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             uuid TEXT NOT NULL UNIQUE,
@@ -62,7 +64,7 @@ pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
             total_cents INTEGER NOT NULL,
             payment_method TEXT NOT NULL
         );
-        
+
         CREATE TABLE IF NOT EXISTS order_items (
             order_id INTEGER NOT NULL,
             name TEXT NOT NULL,
@@ -70,7 +72,7 @@ pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
             quantity INTEGER NOT NULL,
             FOREIGN KEY(order_id) REFERENCES orders(id)
         );
-        
+
         CREATE TABLE IF NOT EXISTS audit_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             action TEXT NOT NULL,
@@ -98,9 +100,9 @@ pub fn get_products_with_pool(pool: &DbPool) -> Result<Vec<Product>, String> {
 
     let mut stmt = conn
         .prepare(
-            "SELECT p.id, p.name, p.price_cents, c.id, c.name 
-         FROM products p 
-         JOIN categories c ON p.category_id = c.id 
+            "SELECT p.id, p.name, p.price_cents, c.id, c.name
+         FROM products p
+         JOIN categories c ON p.category_id = c.id
          ORDER BY p.id",
         )
         .map_err(|e| e.to_string())?;
@@ -324,14 +326,32 @@ pub fn get_orders_with_pool(pool: &DbPool) -> Result<Vec<Order>, String> {
     Ok(result)
 }
 
+pub fn get_product_sales_count_with_pool(pool: &DbPool) -> Result<Vec<ProductSalesCount>, String> {
+    let result = get_orders_with_pool(pool)?
+        .into_iter()
+        .flat_map(|order| order.items.into_iter())
+        .fold(HashMap::new(), |mut acc, item| {
+            *acc.entry(item.name).or_insert(0) += item.quantity;
+            acc
+        })
+        .into_iter()
+        .map(|(product_name, count)| ProductSalesCount {
+            product_name,
+            count,
+        })
+        .collect();
+
+    Ok(result)
+}
+
 pub fn get_product_with_pool(pool: &DbPool, id: i32) -> Result<Product, String> {
     let conn = pool.get().map_err(|e| e.to_string())?;
 
     let mut stmt = conn
         .prepare(
-            "SELECT p.id, p.name, p.price_cents, c.id, c.name 
-         FROM products p 
-         JOIN categories c ON p.category_id = c.id 
+            "SELECT p.id, p.name, p.price_cents, c.id, c.name
+         FROM products p
+         JOIN categories c ON p.category_id = c.id
          WHERE p.id = ?1",
         )
         .map_err(|e| e.to_string())?;
@@ -374,9 +394,9 @@ pub fn update_product_with_pool(
     // Fetch current product to get existing values
     let current = tx
         .query_row(
-            "SELECT p.id, p.name, p.price_cents, p.category_id, c.name 
-         FROM products p 
-         JOIN categories c ON p.category_id = c.id 
+            "SELECT p.id, p.name, p.price_cents, p.category_id, c.name
+         FROM products p
+         JOIN categories c ON p.category_id = c.id
          WHERE p.id = ?1",
             params![id],
             |row| {

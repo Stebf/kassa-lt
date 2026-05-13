@@ -18,7 +18,7 @@ function App() {
           <Button color="inherit" onClick={() => navigate("/")}>
             Kasse
           </Button>
-          <Button color="inherit" onClick={() => navigate("/dashboard")}>
+          <Button color="inherit" onClick={() => navigate("/orders")}>
             Bestellungen
           </Button>
           <Button color="inherit" onClick={() => navigate("/products")}>
