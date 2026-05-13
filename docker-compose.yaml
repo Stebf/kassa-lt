@@ -1,0 +1,15 @@
+services:
+  webdav:
+    image: bytemark/webdav
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      AUTH_TYPE: Digest
+      USERNAME: alice
+      PASSWORD: secret1234
+    volumes:
+      - dav-data:/var/lib/dav
+
+volumes:
+  dav-data:
