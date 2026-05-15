@@ -2,32 +2,32 @@ import { Box, Switch } from "@mui/material";
 import FormGroup from '@mui/material/FormGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import { useAdmin } from "../context/AdminContext";
-import { useState } from "react";
+// import { useState } from "react";
 
-import FormControl from '@mui/material/FormControl';
+// import FormControl from '@mui/material/FormControl';
 
-import Visibility from '@mui/icons-material/Visibility';
-import VisibilityOff from '@mui/icons-material/VisibilityOff';
+// import Visibility from '@mui/icons-material/Visibility';
+// import VisibilityOff from '@mui/icons-material/VisibilityOff';
 
 export default function SettingsAdminModePanel() {
     const { adminModeEnabled, setAdminMode } = useAdmin();
-    const [showPassword, setShowPassword] = useState(false);
+    // const [showPassword, setShowPassword] = useState(false);
 
     const handleAdminChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         await setAdminMode(event.target.checked);
     };
 
-    const handleClickShowPassword = () => {
-        setShowPassword(!showPassword);
-    };
+    // const handleClickShowPassword = () => {
+    //     setShowPassword(!showPassword);
+    // };
 
-    const handleMouseDownPassword = (event: React.MouseEvent<HTMLButtonElement>) => {
-        event.preventDefault();
-    };
+    // const handleMouseDownPassword = (event: React.MouseEvent<HTMLButtonElement>) => {
+    //     event.preventDefault();
+    // };
 
-    const handleMouseUpPassword = (event: React.MouseEvent<HTMLButtonElement>) => {
-        event.preventDefault();
-    };
+    // const handleMouseUpPassword = (event: React.MouseEvent<HTMLButtonElement>) => {
+    //     event.preventDefault();
+    // };
 
     return (
     <Box sx={{ display: 'flex', alignItems: 'center' }}>
