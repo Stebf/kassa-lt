@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
 import type { Product } from "./types/product";
 import type { CartItem } from "./types/cart";
 import type { Order, ProductSalesCount } from "./types/order";
@@ -70,19 +71,13 @@ export async function exportOrders(): Promise<string> {
   return invoke<string>("export_orders_csv", { orders: await getOrders() });
 }
 
-export async function exportCSV(csv = "", fileName = "orders.csv"): Promise<void> {
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-
+export async function exportCSV(csv = "", path = "orders.csv"): Promise<void> {
+  console.log("Exporting CSV to", path);
   try {
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = fileName;
-    link.style.display = "none";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  } finally {
-    URL.revokeObjectURL(url);
+    await writeTextFile(path, csv);
+    console.log("CSV export successful");
+  } catch (error) {
+    console.error("CSV export failed", error);
+    throw error;
   }
 }

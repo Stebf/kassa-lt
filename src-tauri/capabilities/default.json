@@ -9,6 +9,7 @@
     "core:default",
     "dialog:default",
     "fs:default",
+    "fs:allow-download-write",
     "store:default"
   ]
 }
