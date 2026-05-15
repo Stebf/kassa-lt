@@ -15,6 +15,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
             let app_handle = app.handle();
             if cfg!(debug_assertions) {
@@ -27,7 +28,7 @@ pub fn run() {
 
             // Create DB path and connection pool
             let app_data_dir = setup_app_data_dir(app_handle)?;
-            config::init_app_config(&app_data_dir)?;
+            // config::init_app_config(&app_data_dir)?;
             let db_path = app_data_dir.join("kassalt.db");
             info!("Using database at: {:?}", db_path);
 
