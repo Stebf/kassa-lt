@@ -1,68 +1,54 @@
-use log::info;
-use once_cell::sync::OnceCell;
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use std::sync::RwLock;
 
-pub static APP_CONFIG: OnceCell<RwLock<AppConfig>> = OnceCell::new();
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AppConfig {
-    pub enable_custom_db_path: bool,
-    pub custom_db_path: String,
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum WebDavAuthMethod {
+    Basic,
+    Digest,
 }
 
-impl Default for AppConfig {
-    fn default() -> Self {
-        AppConfig {
-            enable_custom_db_path: false,
-            custom_db_path: String::new(),
-        }
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct BackupWorkerConfig {
+    pub webdav_url: String,
+    pub username: String,
+    pub password: String,
+    pub auth_method: WebDavAuthMethod,
+}
+
+pub fn get_backup_config<R: tauri::Runtime>(
+    store: &Arc<tauri_plugin_store::Store<R>>,
+) -> Option<BackupWorkerConfig> {
+    store
+        .get("backupConfig")
+        .and_then(|v| serde_json::from_value::<BackupWorkerConfig>(v).ok())
+}
+
+pub fn set_backup_config<R: tauri::Runtime>(
+    store: &Arc<tauri_plugin_store::Store<R>>,
+    config: &BackupWorkerConfig,
+) {
+    let v = serde_json::to_value(config).expect("failed to serialize backupconfig");
+    store.set("backupConfig", v);
+}
+
+pub fn default_backup_config() -> BackupWorkerConfig {
+    BackupWorkerConfig {
+        webdav_url: "http://localhost:8080".to_string(),
+        username: "alice".to_string(),
+        password: "secret1234".to_string(),
+        auth_method: WebDavAuthMethod::Digest,
     }
 }
 
-impl AppConfig {
-    pub fn load_from_file(path: &PathBuf) -> Result<Self, String> {
-        let config_str = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-        serde_yaml::from_str(&config_str).map_err(|e| e.to_string())
-    }
-
-    pub fn save_to_file(&self, path: &PathBuf) -> Result<(), String> {
-        let config_str = serde_yaml::to_string(self).map_err(|e| e.to_string())?;
-        std::fs::write(path, config_str).map_err(|e| e.to_string())
-    }
-}
-
-pub fn init_app_config(app_data_dir: &std::path::PathBuf) -> Result<(), String> {
-    let config_path = app_data_dir.clone().join("config.yaml");
-
-    let config = match AppConfig::load_from_file(&config_path) {
-        Ok(c) => {
-            info!("Loaded config from file: {:?}", config_path);
-            c
+pub fn init_backup_config<R: tauri::Runtime>(store: &Arc<tauri_plugin_store::Store<R>>) {
+    match store
+        .get("backupConfig")
+        .and_then(|v| serde_json::from_value::<BackupWorkerConfig>(v).ok())
+    {
+        Some(_) => {}
+        None => {
+            set_backup_config(store, &default_backup_config());
         }
-        Err(_) => {
-            let default = AppConfig::default();
-            default.save_to_file(&config_path)?;
-            info!("Created default config file: {:?}", config_path);
-            default
-        }
-    };
-
-    APP_CONFIG
-        .set(RwLock::new(config))
-        .map_err(|_| "Config already initialized")?;
-    Ok(())
-}
-
-pub fn save_config(config: &AppConfig, config_path: &PathBuf) -> Result<(), String> {
-    config.save_to_file(config_path)
-}
-
-pub fn get_config() -> std::sync::LockResult<std::sync::RwLockReadGuard<'static, AppConfig>> {
-    APP_CONFIG.get().expect("Config not initialized!").read()
-}
-
-pub fn get_config_mut() -> std::sync::LockResult<std::sync::RwLockWriteGuard<'static, AppConfig>> {
-    APP_CONFIG.get().expect("Config not initialized!").write()
+    }
 }

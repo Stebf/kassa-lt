@@ -12,3 +12,17 @@ You can use the Makefile for common build tasks:
 
 ### Release versions
 You can create executables according to https://tauri.app/distribute/, right now it is only tested for Windows NullSoftInstaller and Android.
+
+## Development
+
+### WebDAV backup
+
+To test the backup feature locally, run `docker compose up` to start a WebDAV server.
+The app needs to be configured with the following settings:
+
+* **WebDAV URL**: `http://localhost:8080`
+* **Username**: `alice`
+* **Password**: `secret1234`
+* **Auth Method**: `Digest`
+
+To check for successful backups, visit [http://localhost:8080](http://localhost:8080) in a web browser.

@@ -687,3 +687,12 @@ pub fn get_categories_with_pool(pool: &DbPool) -> Result<Vec<crate::models::Cate
 
     Ok(categories)
 }
+
+pub fn backup_with_pool(pool: &DbPool, backup_path: &PathBuf) -> Result<(), String> {
+    let conn = pool.get().map_err(|e| e.to_string())?;
+
+    conn.backup(rusqlite::MAIN_DB, backup_path, None)
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
