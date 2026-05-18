@@ -18,7 +18,7 @@ import { useState } from "react";
 import { useCartStore } from "../store/cartStore";
 import { checkout } from "../api";
 import type { CartItem } from "../types/cart";
-import CheckoutDialog from "./CheckoutDialog";
+import CashCheckoutDialog from "./CashCheckoutDialog";
 
 function getErrorMessage(error: unknown): string {
   if (typeof error === "string") {
@@ -140,7 +140,7 @@ export default function CartPanel() {
         </Button>
       </Stack>
 
-      <CheckoutDialog
+      <CashCheckoutDialog
         open={checkoutDialogOpen}
         total={total}
         onClose={() => setCheckoutDialogOpen(false)}
