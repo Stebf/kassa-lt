@@ -45,7 +45,7 @@ export default function CartPanel() {
 
   async function handleCheckout(type: "cash" | "card") {
     if (!items.length) return;
-    
+
     try {
       setCheckoutLoading(true);
       setCheckoutError(null);
@@ -117,17 +117,18 @@ export default function CartPanel() {
           variant="contained"
           onClick={() => setCheckoutDialogOpen(true)}
           disabled={!items.length || checkoutLoading}
+          startIcon={<PaymentsIcon />}
         >
-          <PaymentsIcon /> Bar bezahlen
+          Bar bezahlen
         </Button>
 
         <Button
           variant="outlined"
           onClick={() => handleCheckout("card")}
           disabled={!items.length || checkoutLoading}
+          startIcon={<CreditCardIcon />}
         >
-          <CreditCardIcon />
-          Karte
+          Mit Karte bezahlen
         </Button>
 
         <Button
