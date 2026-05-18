@@ -18,7 +18,7 @@ type Props = {
   onConfirm: (amountReceived: number) => void;
 };
 
-export default function CheckoutDialog({
+export default function CashCheckoutDialog({
   open,
   total,
   onClose,
