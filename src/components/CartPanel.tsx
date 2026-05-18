@@ -18,6 +18,7 @@ import { useState } from "react";
 import { useCartStore } from "../store/cartStore";
 import { checkout } from "../api";
 import type { CartItem } from "../types/cart";
+import CardCheckoutDialog from "./CardCheckoutDialog";
 import CashCheckoutDialog from "./CashCheckoutDialog";
 
 function getErrorMessage(error: unknown): string {
@@ -39,20 +40,22 @@ export default function CartPanel() {
   const items = useCartStore((s) => s.items);
   const enqueueRemove = useCartStore((s) => s.enqueueRemove);
   const setItems = useCartStore((s) => s.setItems);
-  const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false);
+  const [openedCheckoutDialog, setOpenedCheckoutDialog] = useState<"cash" | "card" | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
-  async function handleCheckout(type: "cash" | "card") {
+  async function handleCheckout(
+    type: "cash" | "card",
+    onSuccess?: () => void
+  ) {
     if (!items.length) return;
 
     try {
       setCheckoutLoading(true);
       setCheckoutError(null);
       await checkout(items, type);
-      // Clear cart after successful checkout
       setItems([]);
-      setCheckoutDialogOpen(false);
+      onSuccess?.();
     } catch (err) {
       console.error("Checkout failed:", err);
       setCheckoutError(getErrorMessage(err));
@@ -62,7 +65,11 @@ export default function CartPanel() {
   }
 
   async function handleCashConfirm() {
-    await handleCheckout("cash");
+    await handleCheckout("cash", () => setOpenedCheckoutDialog(null));
+  }
+
+  async function handleCardConfirm() {
+    await handleCheckout("card", () => setOpenedCheckoutDialog(null));
   }
 
   function clear() {
@@ -115,7 +122,7 @@ export default function CartPanel() {
       <Stack spacing={2} sx={{ mt: 2 }}>
         <Button
           variant="contained"
-          onClick={() => setCheckoutDialogOpen(true)}
+          onClick={() => setOpenedCheckoutDialog("cash")}
           disabled={!items.length || checkoutLoading}
           startIcon={<PaymentsIcon />}
         >
@@ -124,7 +131,7 @@ export default function CartPanel() {
 
         <Button
           variant="outlined"
-          onClick={() => handleCheckout("card")}
+          onClick={() => setOpenedCheckoutDialog("card")}
           disabled={!items.length || checkoutLoading}
           startIcon={<CreditCardIcon />}
         >
@@ -141,10 +148,17 @@ export default function CartPanel() {
       </Stack>
 
       <CashCheckoutDialog
-        open={checkoutDialogOpen}
+        open={openedCheckoutDialog === "cash"}
         total={total}
-        onClose={() => setCheckoutDialogOpen(false)}
+        onClose={() => setOpenedCheckoutDialog(null)}
         onConfirm={handleCashConfirm}
+      />
+
+      <CardCheckoutDialog
+        open={openedCheckoutDialog === "card"}
+        total={total}
+        onClose={() => setOpenedCheckoutDialog(null)}
+        onConfirm={handleCardConfirm}
       />
     </Paper>
   );
