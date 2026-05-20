@@ -83,7 +83,7 @@ export default function SettingsPanel() {
     return (
         <Box sx={{ p: 2 }}>
             <Alert severity="info" variant="outlined" sx={{ mb: 2, textAlign: 'left' }}>
-                Given a share link of a NextCloud instance like <code>https://&lt;host&gt;/s/&lt;share_token&gt;</code>, the folder can be used for backups using the following configuration:
+                Given a link to a shared folder of a NextCloud instance like <code>https://&lt;host&gt;/s/&lt;share_token&gt;</code>, the shared folder can be used for backups using the following configuration:
                 <ul>
                     <li><strong>WebDav URL</strong>: The share token embedded in <code>https://&lt;host&gt;/public.php/dav/files/&lt;share_token&gt;</code></li>
                     <li><strong>Username</strong>: <code>anonymous</code></li>
