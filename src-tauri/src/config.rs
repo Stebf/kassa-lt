@@ -42,13 +42,7 @@ pub fn default_backup_config() -> BackupWorkerConfig {
 }
 
 pub fn init_backup_config<R: tauri::Runtime>(store: &Arc<tauri_plugin_store::Store<R>>) {
-    match store
-        .get("backupConfig")
-        .and_then(|v| serde_json::from_value::<BackupWorkerConfig>(v).ok())
-    {
-        Some(_) => {}
-        None => {
-            set_backup_config(store, &default_backup_config());
-        }
+    if get_backup_config(store).is_none() {
+        set_backup_config(store, &default_backup_config());
     }
 }

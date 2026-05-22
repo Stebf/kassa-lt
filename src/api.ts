@@ -5,6 +5,7 @@ import type { CartItem } from "./types/cart";
 import type { Order, ProductSalesCount } from "./types/order";
 
 import type { Category } from "./types/category";
+import type { BackupWorkerConfig } from "./types/config";
 export async function getProducts(): Promise<Product[]> {
   return invoke<Product[]>("get_products");
 }
@@ -80,4 +81,12 @@ export async function exportCSV(csv = "", path = "orders.csv"): Promise<void> {
     console.error("CSV export failed", error);
     throw error;
   }
+}
+
+export async function setBackupConfig(config: BackupWorkerConfig): Promise<void> {
+  await invoke<void>("set_backup_config", { config });
+}
+
+export async function getBackupConfig(): Promise<BackupWorkerConfig> {
+  return invoke<BackupWorkerConfig>("get_backup_config");
 }

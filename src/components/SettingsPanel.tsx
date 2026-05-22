@@ -1,13 +1,7 @@
 import { Box, Button, FormControl, InputLabel, MenuItem, Select, Stack, TextField, Alert, Typography } from '@mui/material';
 import { invoke } from '@tauri-apps/api/core';
 import { useEffect, useState, type FormEvent } from 'react';
-
-type BackupWorkerConfig = {
-    webdav_url: string;
-    username: string;
-    password: string;
-    auth_method: string;
-}
+import { getBackupConfig, setBackupConfig } from '../api';
 
 type BackupState =
     | { type: "NotRunYet" }
@@ -56,13 +50,14 @@ export default function SettingsPanel() {
         const password = formData.get("password") as string;
         const authMethod = formData.get("authMethod") as string;
 
-        await invoke<void>("set_backup_config", { config: { webdav_url: webdavUrl, username: username, password: password, auth_method: authMethod } });
+        const config = { webdav_url: webdavUrl, username: username, password: password, auth_method: authMethod };
+        await setBackupConfig(config);
     }
 
     useEffect(() => {
         async function loadConfig() {
             try {
-                const config = await invoke<BackupWorkerConfig>("get_backup_config");
+                const config = await getBackupConfig();
                 (document.querySelector('input[name="webdavUrl"]') as HTMLInputElement).value = config.webdav_url;
                 (document.querySelector('input[name="username"]') as HTMLInputElement).value = config.username;
                 (document.querySelector('input[name="password"]') as HTMLInputElement).value = config.password;
@@ -88,7 +83,7 @@ export default function SettingsPanel() {
     return (
         <Box sx={{ p: 2 }}>
             <Alert severity="info" variant="outlined" sx={{ mb: 2, textAlign: 'left' }}>
-                Given a share link of a NextCloud instance like <code>https://&lt;host&gt;/s/&lt;share_token&gt;</code>, the folder can be used for backups using the following configuration:
+                Given a link to a shared folder of a NextCloud instance like <code>https://&lt;host&gt;/s/&lt;share_token&gt;</code>, the shared folder can be used for backups using the following configuration:
                 <ul>
                     <li><strong>WebDav URL</strong>: The share token embedded in <code>https://&lt;host&gt;/public.php/dav/files/&lt;share_token&gt;</code></li>
                     <li><strong>Username</strong>: <code>anonymous</code></li>
