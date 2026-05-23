@@ -40,6 +40,26 @@ impl ManageConnection for SqliteManager {
 
 pub type DbPool = Pool<SqliteManager>;
 
+fn migrate_orders_comment_column(conn: &rusqlite::Connection) -> Result<(), String> {
+    let has_comment_column: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('orders') WHERE name = 'comment'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    if has_comment_column == 0 {
+        conn.execute(
+            "ALTER TABLE orders ADD COLUMN comment TEXT NOT NULL DEFAULT ''",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
 pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
     let conn = pool.get().map_err(|e| e.to_string())?;
 
@@ -62,7 +82,8 @@ pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
             uuid TEXT NOT NULL UNIQUE,
             created_at TEXT NOT NULL,
             total_cents INTEGER NOT NULL,
-            payment_method TEXT NOT NULL
+            payment_method TEXT NOT NULL,
+            comment TEXT
         );
 
         CREATE TABLE IF NOT EXISTS order_items (
@@ -84,6 +105,8 @@ pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
         );",
     )
     .map_err(|e| e.to_string())?;
+
+    migrate_orders_comment_column(&conn)?;
 
     // Ensure default category exists
     conn.execute(
@@ -207,6 +230,7 @@ pub fn checkout_with_pool(
     pool: &DbPool,
     items: Vec<CartItem>,
     payment_method: String,
+    comment: String,
 ) -> Result<Order, String> {
     if items.is_empty() {
         return Err("Cart is empty".to_string());
@@ -221,8 +245,8 @@ pub fn checkout_with_pool(
     let total_cents = logic::cart_total_cents(&items);
 
     tx.execute(
-        "INSERT INTO orders (uuid, created_at, total_cents, payment_method) VALUES (?1, ?2, ?3, ?4)",
-        params![&order_uuid, &created_at, total_cents, &payment_method],
+        "INSERT INTO orders (uuid, created_at, total_cents, payment_method, comment) VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![&order_uuid, &created_at, total_cents, &payment_method, &comment],
     ).map_err(|e| e.to_string())?;
 
     let order_id = tx.last_insert_rowid();
@@ -247,6 +271,7 @@ pub fn checkout_with_pool(
                 created_at: created_at.clone(),
                 total: total_cents as f64 / 100.0,
                 payment_method: payment_method.clone(),
+                comment: comment.clone(),
                 items: logic::order_items_from_cart(&items),
             })
             .unwrap_or_else(|_| String::new())
@@ -262,6 +287,7 @@ pub fn checkout_with_pool(
         created_at,
         total: total_cents as f64 / 100.0,
         payment_method,
+        comment,
         items: logic::order_items_from_cart(&items),
     })
 }
@@ -271,7 +297,7 @@ pub fn get_orders_with_pool(pool: &DbPool) -> Result<Vec<Order>, String> {
 
     let mut stmt = conn
         .prepare(
-            "SELECT id, uuid, created_at, total_cents, payment_method FROM orders ORDER BY id DESC",
+            "SELECT id, uuid, created_at, total_cents, payment_method, comment FROM orders ORDER BY id DESC",
         )
         .map_err(|e| e.to_string())?;
 
@@ -282,6 +308,7 @@ pub fn get_orders_with_pool(pool: &DbPool) -> Result<Vec<Order>, String> {
             let created_at: String = row.get(2)?;
             let total_cents: i32 = row.get(3)?;
             let payment_method: String = row.get(4)?;
+            let comment: String = row.get(5)?;
 
             Ok((
                 order_id,
@@ -289,6 +316,7 @@ pub fn get_orders_with_pool(pool: &DbPool) -> Result<Vec<Order>, String> {
                 created_at,
                 total_cents,
                 payment_method,
+                comment,
             ))
         })
         .map_err(|e| e.to_string())?
@@ -296,7 +324,7 @@ pub fn get_orders_with_pool(pool: &DbPool) -> Result<Vec<Order>, String> {
         .map_err(|e| e.to_string())?;
 
     let mut result = Vec::new();
-    for (order_id, order_uuid, created_at, total_cents, payment_method) in orders {
+    for (order_id, order_uuid, created_at, total_cents, payment_method, comment) in orders {
         let mut item_stmt = conn
             .prepare("SELECT name, price_cents, quantity FROM order_items WHERE order_id = ?1")
             .map_err(|e| e.to_string())?;
@@ -319,6 +347,7 @@ pub fn get_orders_with_pool(pool: &DbPool) -> Result<Vec<Order>, String> {
             created_at,
             total: total_cents as f64 / 100.0,
             payment_method,
+            comment,
             items,
         });
     }

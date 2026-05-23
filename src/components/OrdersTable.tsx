@@ -48,6 +48,7 @@ export default function OrdersTable() {
               <TableCell>Summe</TableCell>
               <TableCell>Methode</TableCell>
               <TableCell>Produkte</TableCell>
+              <TableCell>Kommentar</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -69,6 +70,9 @@ export default function OrdersTable() {
                 <TableCell>{order.payment_method}</TableCell>
                 <TableCell>
                   {order.items.map((item) => `${item.name} x${item.quantity}`).join(", ")}
+                </TableCell>
+                <TableCell>
+                  {order.comment}
                 </TableCell>
               </TableRow>
             ))}

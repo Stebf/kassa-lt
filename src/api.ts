@@ -6,6 +6,7 @@ import type { Order, ProductSalesCount } from "./types/order";
 
 import type { Category } from "./types/category";
 import type { BackupWorkerConfig } from "./types/config";
+
 export async function getProducts(): Promise<Product[]> {
   return invoke<Product[]>("get_products");
 }
@@ -22,12 +23,14 @@ export async function addProduct(name: string, price: number, category: string =
 
 export async function checkout(
   items: CartItem[],
-  paymentMethod: "cash" | "card"
+  paymentMethod: "cash" | "card",
+  comment: string = ""
 ): Promise<Order> {
   if (!items.length) throw new Error("Cart empty");
   return invoke<Order>("checkout", {
     items,
     paymentMethod,
+    comment,
   });
 }
 
