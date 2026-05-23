@@ -14,6 +14,7 @@ import { useCartStore } from "../store/cartStore";
 import { getProducts, getTabs } from "../api";
 import type { Product } from "../types/product";
 import type { Tab as ProductTab } from "../types/category";
+import { getTabVisual } from "../theme/tabColors";
 
 type ProductGridProps = {
   reloadKey?: number;
@@ -59,7 +60,7 @@ export default function ProductGrid({ reloadKey = 0 }: ProductGridProps) {
   }
 
   const tabEntries = useMemo(
-    () => tabs.map((tab) => ({ tabId: tab.id, tabName: tab.name })),
+    () => tabs.map((tab) => ({ tabId: tab.id, tabName: tab.name, visual: getTabVisual(tab.id) })),
     [tabs],
   );
 
@@ -97,6 +98,8 @@ export default function ProductGrid({ reloadKey = 0 }: ProductGridProps) {
     return Array.from(groups.entries()).sort(([left], [right]) => left.localeCompare(right));
   }, [selectedTabProducts]);
 
+  const activeTabVisual = getTabVisual(activeTabId ?? 1);
+
   if (loading) {
     return (
       <Box sx={{ p: 4 }}>
@@ -123,9 +126,31 @@ export default function ProductGrid({ reloadKey = 0 }: ProductGridProps) {
             variant="scrollable"
             scrollButtons="auto"
             aria-label="Produkttabs"
+            sx={{
+              minHeight: 48,
+              "& .MuiTabs-indicator": {
+                backgroundColor: activeTabVisual.backgroundColor,
+                height: 3,
+                borderRadius: 999,
+              },
+            }}
           >
             {tabEntries.map((entry) => (
-              <MuiTab key={entry.tabId} value={entry.tabId} label={entry.tabName} />
+              <MuiTab
+                key={entry.tabId}
+                value={entry.tabId}
+                label={entry.tabName}
+                sx={{
+                  minHeight: 48,
+                  textTransform: "none",
+                  fontWeight: 500,
+                  color: "text.primary",
+                  "&.Mui-selected": {
+                    color: activeTabVisual.backgroundColor,
+                    fontWeight: 700,
+                  },
+                }}
+              />
             ))}
           </Tabs>
 
@@ -137,7 +162,14 @@ export default function ProductGrid({ reloadKey = 0 }: ProductGridProps) {
               <Grid container spacing={2}>
                 {categoryProducts.map((item) => (
                   <Grid size={{ xs: 6, md: 4 }} key={item.id}>
-                    <Paper elevation={1}>
+                    <Paper
+                      elevation={1}
+                      sx={{
+                        overflow: "hidden",
+                         border: `1px solid ${activeTabVisual.backgroundColor}22`,
+                         backgroundColor: "background.paper",
+                      }}
+                    >
                       <Button
                         fullWidth
                         onClick={() => handleAdd(item.id)}
@@ -150,6 +182,14 @@ export default function ProductGrid({ reloadKey = 0 }: ProductGridProps) {
                           alignItems: "center",
                           justifyContent: "center",
                           textTransform: "none",
+                          color: activeTabVisual.backgroundColor,
+                           backgroundColor: "transparent",
+                          transition: "transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease",
+                          "&:hover": {
+                             backgroundColor: `${activeTabVisual.backgroundColor}10`,
+                            opacity: 0.94,
+                            transform: "translateY(-1px)",
+                          },
                         }}
                       >
                         <span>{item.name}</span>

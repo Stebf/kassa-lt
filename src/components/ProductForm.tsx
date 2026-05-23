@@ -17,6 +17,7 @@ import {
 import type { Product } from "../types/product";
 import { getCategories, getTabs } from "../api";
 import type { Category, Tab } from "../types/category";
+import { getTabVisual } from "../theme/tabColors";
 
 type Props = {
   initial?: Product | null;
@@ -184,7 +185,16 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
                 return (
                   <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", gap: 0.75 }}>
                     {selectedTabs.map((tab) => (
-                      <Chip key={tab.id} label={tab.name} variant="outlined" size="small" />
+                      <Chip
+                        key={tab.id}
+                        label={tab.name}
+                        size="small"
+                        sx={{
+                          color: getTabVisual(tab.id).textColor,
+                          backgroundColor: getTabVisual(tab.id).backgroundColor,
+                          borderColor: getTabVisual(tab.id).backgroundColor,
+                        }}
+                      />
                     ))}
                   </Stack>
                 );

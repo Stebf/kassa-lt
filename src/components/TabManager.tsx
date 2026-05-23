@@ -19,6 +19,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import type { Tab } from "../types/category";
 import { addTab, deleteTab, getTabs, updateTab } from "../api";
+import { getTabVisual } from "../theme/tabColors";
 
 type Props = {
   open: boolean;
@@ -159,7 +160,11 @@ export default function TabManager({ open, onClose, onChange }: Props) {
           <Box sx={{ maxHeight: 360, overflowY: "auto" }}>
             <List disablePadding>
               {tabs.map((tab) => (
-                <ListItem key={tab.id} divider>
+                <ListItem
+                  key={tab.id}
+                  divider
+                  sx={{ borderLeft: `6px solid ${getTabVisual(tab.id).backgroundColor}`, pl: 1.5 }}
+                >
                   {editingId === tab.id ? (
                     <Stack direction="row" spacing={1} sx={{ width: "100%", alignItems: "center" }}>
                       <TextField
