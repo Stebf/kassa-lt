@@ -9,7 +9,7 @@ use r2d2::{ManageConnection, Pool};
 
 use crate::logic;
 use crate::models::ProductSalesCount;
-use crate::models::{CartItem, Order, OrderItem, Product};
+use crate::models::{CartItem, Order, OrderItem, Product, Tab};
 
 pub struct SqliteManager {
     pub path: PathBuf,
@@ -60,6 +60,117 @@ fn migrate_orders_comment_column(conn: &rusqlite::Connection) -> Result<(), Stri
     Ok(())
 }
 
+fn migrate_products_tabs_table(conn: &rusqlite::Connection) -> Result<(), String> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS product_tabs (
+            product_id INTEGER NOT NULL,
+            tab_id INTEGER NOT NULL,
+            PRIMARY KEY(product_id, tab_id),
+            FOREIGN KEY(product_id) REFERENCES products(id) ON DELETE CASCADE,
+            FOREIGN KEY(tab_id) REFERENCES tabs(id) ON DELETE CASCADE
+        );",
+    )
+    .map_err(|e| e.to_string())?;
+
+    let has_tab_id_column: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('products') WHERE name = 'tab_id'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    if has_tab_id_column > 0 {
+        conn.execute(
+            "INSERT OR IGNORE INTO product_tabs (product_id, tab_id)
+             SELECT id, COALESCE(tab_id, 1)
+             FROM products",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    let has_tab_name_column: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('products') WHERE name = 'tab_name'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    if has_tab_name_column > 0 {
+        conn.execute(
+            "INSERT OR IGNORE INTO tabs (name)
+             SELECT DISTINCT TRIM(tab_name)
+             FROM products
+             WHERE tab_name IS NOT NULL AND TRIM(tab_name) != ''",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
+
+        conn.execute(
+            "INSERT OR IGNORE INTO product_tabs (product_id, tab_id)
+             SELECT p.id, t.id
+             FROM products p
+    let final_tab_ids = normalize_tab_ids(tab_ids)?;
+    let tabs = get_tabs_by_ids(&tx, &final_tab_ids)?;
+    let primary_tab_id = tabs[0].id;
+             WHERE p.tab_name IS NOT NULL AND TRIM(p.tab_name) != ''",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
+fn migrate_products_tab_id_column(conn: &rusqlite::Connection) -> Result<(), String> {
+    let has_tab_id_column: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('products') WHERE name = 'tab_id'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    if has_tab_id_column == 0 {
+        conn.execute(
+            "ALTER TABLE products ADD COLUMN tab_id INTEGER NOT NULL DEFAULT 1",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    let has_tab_name_column: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('products') WHERE name = 'tab_name'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    if has_tab_name_column > 0 {
+        conn.execute(
+            "INSERT OR IGNORE INTO tabs (name)
+             SELECT DISTINCT TRIM(tab_name)
+             FROM products
+             WHERE tab_name IS NOT NULL AND TRIM(tab_name) != ''",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
+
+        conn.execute(
+            "UPDATE products
+             SET tab_id = COALESCE((SELECT t.id FROM tabs t WHERE t.name = TRIM(products.tab_name)), 1)
+             WHERE tab_name IS NOT NULL AND TRIM(tab_name) != ''",
+            [],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
 pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
     let conn = pool.get().map_err(|e| e.to_string())?;
 
@@ -69,12 +180,27 @@ pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
             name TEXT NOT NULL UNIQUE
         );
 
+        CREATE TABLE IF NOT EXISTS tabs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE
+        );
+
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             price_cents INTEGER NOT NULL,
             category_id INTEGER NOT NULL,
-            FOREIGN KEY(category_id) REFERENCES categories(id)
+            tab_id INTEGER NOT NULL DEFAULT 1,
+            FOREIGN KEY(category_id) REFERENCES categories(id),
+            FOREIGN KEY(tab_id) REFERENCES tabs(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS product_tabs (
+            product_id INTEGER NOT NULL,
+            tab_id INTEGER NOT NULL,
+            PRIMARY KEY(product_id, tab_id),
+            FOREIGN KEY(product_id) REFERENCES products(id) ON DELETE CASCADE,
+            FOREIGN KEY(tab_id) REFERENCES tabs(id) ON DELETE CASCADE
         );
 
         CREATE TABLE IF NOT EXISTS orders (
@@ -107,6 +233,8 @@ pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
     .map_err(|e| e.to_string())?;
 
     migrate_orders_comment_column(&conn)?;
+    migrate_products_tabs_table(&conn)?;
+    migrate_products_tab_id_column(&conn)?;
 
     // Ensure default category exists
     conn.execute(
@@ -114,6 +242,16 @@ pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
         [],
     )
     .map_err(|e| e.to_string())?;
+
+    // Ensure default tab exists
+    conn.execute(
+        "INSERT OR IGNORE INTO tabs (id, name) VALUES (1, 'Alle')",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute("UPDATE tabs SET name = 'Alle' WHERE id = 1", [])
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -132,17 +270,30 @@ pub fn get_products_with_pool(pool: &DbPool) -> Result<Vec<Product>, String> {
 
     let products = stmt
         .query_map([], |row| {
-            Ok(Product {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                price: row.get::<_, i32>(2)? as f64 / 100.0,
-                category_id: row.get(3)?,
-                category_name: row.get(4)?,
-            })
+            Ok((
+                row.get::<_, i32>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, i32>(2)?,
+                row.get::<_, i32>(3)?,
+                row.get::<_, String>(4)?,
+            ))
         })
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .map(|(id, name, price_cents, category_id, category_name)| {
+            let tabs = get_tabs_for_product(&conn, id)?;
+            Ok(Product {
+                id,
+                name,
+                price: price_cents as f64 / 100.0,
+                category_id,
+                category_name,
+                tabs,
+            })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
 
     Ok(products)
 }
@@ -171,11 +322,81 @@ pub fn create_category(tx: &rusqlite::Transaction, category_name: &str) -> Resul
     Ok(tx.last_insert_rowid() as i32)
 }
 
+pub fn get_tab_by_name(tx: &rusqlite::Transaction, tab_name: &str) -> Result<Option<i32>, String> {
+    let mut stmt = tx
+        .prepare("SELECT id FROM tabs WHERE name = ?1")
+        .map_err(|e| e.to_string())?;
+
+    let res = stmt
+        .query_row(params![tab_name], |row| row.get::<_, i32>(0))
+        .optional()
+        .map_err(|e| e.to_string())?;
+    Ok(res)
+}
+
+pub fn get_tabs_for_product(
+    conn: &rusqlite::Connection,
+    product_id: i32,
+) -> Result<Vec<Tab>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT t.id, t.name
+             FROM product_tabs pt
+             JOIN tabs t ON pt.tab_id = t.id
+             WHERE pt.product_id = ?1
+             ORDER BY t.name",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let tabs = stmt
+        .query_map(params![product_id], |row| {
+            Ok(Tab {
+                id: row.get(0)?,
+                name: row.get(1)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(tabs)
+}
+
+pub fn get_tabs_by_ids(conn: &rusqlite::Connection, tab_ids: &[i32]) -> Result<Vec<Tab>, String> {
+    if tab_ids.is_empty() {
+        return Err("At least one tab is required".to_string());
+    }
+
+    let mut tabs = Vec::with_capacity(tab_ids.len());
+
+    for tab_id in tab_ids {
+        let tab = conn
+            .query_row(
+                "SELECT id, name FROM tabs WHERE id = ?1",
+                params![tab_id],
+                |row| {
+                    Ok(Tab {
+                        id: row.get(0)?,
+                        name: row.get(1)?,
+                    })
+                },
+            )
+            .optional()
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| format!("Tab not found: {}", tab_id))?;
+
+        tabs.push(tab);
+    }
+
+    Ok(tabs)
+}
+
 pub fn add_product_with_pool(
     pool: &DbPool,
     name: String,
     price: f64,
     category: Option<String>,
+    tab_ids: Option<Vec<i32>>,
 ) -> Result<Product, String> {
     let normalized_name = logic::normalize_product_name(&name)?;
     logic::validate_price(price)?;
@@ -190,13 +411,27 @@ pub fn add_product_with_pool(
         None => create_category(&tx, &category_name)?,
     };
 
+    let final_tab_ids = normalize_tab_ids(tab_ids)?;
+    let primary_tab_id = final_tab_ids[0];
+
     tx.execute(
-        "INSERT INTO products (name, price_cents, category_id) VALUES (?1, ?2, ?3)",
-        params![normalized_name, price_cents, category_id],
+        "INSERT INTO products (name, price_cents, category_id, tab_id) VALUES (?1, ?2, ?3, ?4)",
+        params![normalized_name, price_cents, category_id, primary_tab_id],
     )
     .map_err(|e| e.to_string())?;
 
     let id = tx.last_insert_rowid() as i32;
+
+    for tab_id in &final_tab_ids {
+        tx.execute(
+            "INSERT OR IGNORE INTO product_tabs (product_id, tab_id) VALUES (?1, ?2)",
+            params![id, tab_id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    let tabs = get_tabs_for_product(&tx, id)?;
+    let category_name_for_audit = category_name.clone();
 
     tx.execute(
         "INSERT INTO audit_log (action, table_name, record_id, new_values) VALUES (?, ?, ?, ?)",
@@ -209,7 +444,8 @@ pub fn add_product_with_pool(
                 name: normalized_name.clone(),
                 price,
                 category_id,
-                category_name: category_name.clone()
+                category_name: category_name_for_audit,
+                tabs: tabs.clone(),
             })
             .unwrap_or_else(|_| String::new())
         ],
@@ -223,7 +459,25 @@ pub fn add_product_with_pool(
         price,
         category_id,
         category_name,
+        tabs,
     })
+}
+
+fn normalize_tab_ids(tab_ids: Option<Vec<i32>>) -> Result<Vec<i32>, String> {
+    let mut ids = tab_ids.unwrap_or_else(|| vec![1]);
+
+    if ids.is_empty() {
+        ids.push(1);
+    }
+
+    ids.sort_unstable();
+    ids.dedup();
+
+    if ids.iter().any(|id| *id <= 0) {
+        return Err("Invalid tab id".to_string());
+    }
+
+    Ok(ids)
 }
 
 pub fn checkout_with_pool(
@@ -395,6 +649,7 @@ pub fn get_product_with_pool(pool: &DbPool, id: i32) -> Result<Product, String> 
         let price_cents: i32 = row.get::<_, i32>(2).map_err(|e| e.to_string())?;
         let category_id: i32 = row.get::<_, i32>(3).map_err(|e| e.to_string())?;
         let category_name: String = row.get::<_, String>(4).map_err(|e| e.to_string())?;
+        let tabs = get_tabs_for_product(&conn, id)?;
 
         let product = Product {
             id,
@@ -402,6 +657,7 @@ pub fn get_product_with_pool(pool: &DbPool, id: i32) -> Result<Product, String> 
             price: price_cents as f64 / 100.0,
             category_id,
             category_name,
+            tabs,
         };
 
         Ok(product)
@@ -416,11 +672,11 @@ pub fn update_product_with_pool(
     name: Option<String>,
     price: Option<f64>,
     category: Option<String>,
+    tab_ids: Option<Vec<i32>>,
 ) -> Result<Product, String> {
     let mut conn = pool.get().map_err(|e| e.to_string())?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
-    // Fetch current product to get existing values
     let current = tx
         .query_row(
             "SELECT p.id, p.name, p.price_cents, p.category_id, c.name
@@ -440,15 +696,17 @@ pub fn update_product_with_pool(
         )
         .map_err(|e| e.to_string())?;
 
+    let current_tabs = get_tabs_for_product(&tx, id)?;
+
     let old_values = Product {
         id: current.0,
         name: current.1.clone(),
         price: current.2 as f64 / 100.0,
         category_id: current.3,
         category_name: current.4.clone(),
+        tabs: current_tabs.clone(),
     };
 
-    // Use provided values or existing ones
     let final_name = if let Some(new_name) = name {
         logic::normalize_product_name(&new_name)?
     } else {
@@ -468,6 +726,15 @@ pub fn update_product_with_pool(
         current.4
     };
 
+    let final_tab_ids = if let Some(new_tab_ids) = tab_ids {
+        normalize_tab_ids(Some(new_tab_ids))?
+    } else {
+        current_tabs.iter().map(|tab| tab.id).collect()
+    };
+
+    let final_tabs = get_tabs_by_ids(&tx, &final_tab_ids)?;
+    let final_primary_tab_id = final_tabs[0].id;
+
     let final_category_id = match get_category_by_name(&tx, &final_category_name)? {
         Some(id) => id,
         None => create_category(&tx, &final_category_name)?,
@@ -477,10 +744,24 @@ pub fn update_product_with_pool(
 
     let affected = tx
         .execute(
-            "UPDATE products SET name = ?1, price_cents = ?2, category_id = ?3 WHERE id = ?4",
-            params![final_name, price_cents, final_category_id, id],
+            "UPDATE products SET name = ?1, price_cents = ?2, category_id = ?3, tab_id = ?4 WHERE id = ?5",
+            params![final_name, price_cents, final_category_id, final_primary_tab_id, id],
         )
         .map_err(|e| e.to_string())?;
+
+    tx.execute(
+        "DELETE FROM product_tabs WHERE product_id = ?1",
+        params![id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    for tab_id in &final_tab_ids {
+        tx.execute(
+            "INSERT OR IGNORE INTO product_tabs (product_id, tab_id) VALUES (?1, ?2)",
+            params![id, tab_id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
 
     tx.execute(
         "INSERT INTO audit_log (action, table_name, record_id, old_values, new_values) VALUES (?, ?, ?, ?, ?)",
@@ -489,7 +770,7 @@ pub fn update_product_with_pool(
             "products",
             id.to_string(),
             serde_json::to_string(&old_values).unwrap_or_else(|_| String::new()),
-            serde_json::to_string(&Product { id, name: final_name.clone(), price: final_price, category_id: final_category_id, category_name: final_category_name.clone() }).unwrap_or_else(|_| String::new())
+            serde_json::to_string(&Product { id, name: final_name.clone(), price: final_price, category_id: final_category_id, category_name: final_category_name.clone(), tabs: final_tabs.clone() }).unwrap_or_else(|_| String::new())
         ],
     ).map_err(|e| e.to_string())?;
 
@@ -503,6 +784,7 @@ pub fn update_product_with_pool(
         price: final_price,
         category_id: final_category_id,
         category_name: final_category_name,
+        tabs: final_tabs,
     })
 }
 
@@ -715,6 +997,174 @@ pub fn get_categories_with_pool(pool: &DbPool) -> Result<Vec<crate::models::Cate
         .map_err(|e| e.to_string())?;
 
     Ok(categories)
+}
+
+pub fn add_tab_with_pool(pool: &DbPool, name: String) -> Result<Tab, String> {
+    let normalized_name = logic::normalize_product_name(&name)?;
+
+    let mut conn = pool.get().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    if get_tab_by_name(&tx, &normalized_name)?.is_some() {
+        return Err("Tab already exists".to_string());
+    }
+
+    tx.execute("INSERT INTO tabs (name) VALUES (?1)", params![normalized_name])
+        .map_err(|e| e.to_string())?;
+
+    let id = tx.last_insert_rowid() as i32;
+    let tab = Tab {
+        id,
+        name: normalized_name.clone(),
+    };
+
+    tx.execute(
+        "INSERT INTO audit_log (action, table_name, record_id, new_values) VALUES (?, ?, ?, ?)",
+        params![
+            "INSERT",
+            "tabs",
+            id.to_string(),
+            serde_json::to_string(&tab).unwrap_or_else(|_| String::new()),
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+
+    tx.commit().map_err(|e| e.to_string())?;
+
+    Ok(tab)
+}
+
+pub fn update_tab_with_pool(pool: &DbPool, id: i32, name: String) -> Result<Tab, String> {
+    let normalized_name = logic::normalize_product_name(&name)?;
+
+    let mut conn = pool.get().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    let old_tab = tx
+        .query_row("SELECT id, name FROM tabs WHERE id = ?1", params![id], |row| {
+            Ok(Tab {
+                id: row.get(0)?,
+                name: row.get(1)?,
+            })
+        })
+        .optional()
+        .map_err(|e| e.to_string())?;
+
+    let old_tab = match old_tab {
+        Some(tab) => tab,
+        None => return Err("Tab not found".to_string()),
+    };
+
+    if old_tab.name != normalized_name {
+        if let Some(existing_id) = get_tab_by_name(&tx, &normalized_name)? {
+            if existing_id != id {
+                return Err("Tab already exists".to_string());
+            }
+        }
+    }
+
+    let affected = tx
+        .execute(
+            "UPDATE tabs SET name = ?1 WHERE id = ?2",
+            params![normalized_name, id],
+        )
+        .map_err(|e| e.to_string())?;
+
+    if affected == 0 {
+        return Err("Tab not found".to_string());
+    }
+
+    let tab = Tab {
+        id,
+        name: normalized_name.clone(),
+    };
+
+    tx.execute(
+        "INSERT INTO audit_log (action, table_name, record_id, old_values, new_values) VALUES (?, ?, ?, ?, ?)",
+        params![
+            "UPDATE",
+            "tabs",
+            id.to_string(),
+            serde_json::to_string(&old_tab).unwrap_or_else(|_| String::new()),
+            serde_json::to_string(&tab).unwrap_or_else(|_| String::new()),
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+
+    tx.commit().map_err(|e| e.to_string())?;
+
+    Ok(tab)
+}
+
+pub fn delete_tab_with_pool(pool: &DbPool, id: i32) -> Result<(), String> {
+    if id == 1 {
+        return Err("Default tab cannot be deleted".to_string());
+    }
+
+    let mut conn = pool.get().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    let old_tab = tx
+        .query_row("SELECT id, name FROM tabs WHERE id = ?1", params![id], |row| {
+            Ok(Tab {
+                id: row.get(0)?,
+                name: row.get(1)?,
+            })
+        })
+        .optional()
+        .map_err(|e| e.to_string())?;
+
+    let old_tab = match old_tab {
+        Some(tab) => tab,
+        None => return Err("Tab not found".to_string()),
+    };
+
+    tx.execute("DELETE FROM product_tabs WHERE tab_id = ?1", params![id])
+        .map_err(|e| e.to_string())?;
+
+    let affected = tx
+        .execute("DELETE FROM tabs WHERE id = ?1", params![id])
+        .map_err(|e| e.to_string())?;
+
+    if affected == 0 {
+        return Err("Tab not found".to_string());
+    }
+
+    tx.execute(
+        "INSERT INTO audit_log (action, table_name, record_id, old_values) VALUES (?, ?, ?, ?)",
+        params![
+            "DELETE",
+            "tabs",
+            id.to_string(),
+            serde_json::to_string(&old_tab).unwrap_or_else(|_| String::new()),
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+
+    tx.commit().map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+pub fn get_tabs_with_pool(pool: &DbPool) -> Result<Vec<Tab>, String> {
+    let conn = pool.get().map_err(|e| e.to_string())?;
+
+    let mut stmt = conn
+        .prepare("SELECT id, name FROM tabs ORDER BY name")
+        .map_err(|e| e.to_string())?;
+
+    let tabs = stmt
+        .query_map([], |row| {
+            Ok(Tab {
+                id: row.get(0)?,
+                name: row.get(1)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(tabs)
 }
 
 pub fn backup_with_pool(pool: &DbPool, backup_path: &PathBuf) -> Result<(), String> {

@@ -6,11 +6,13 @@ import { useNavigate } from "react-router-dom";
 import { getProducts, deleteProduct } from "../api";
 import type { Product } from "../types/product";
 import CategoryManager from "../components/CategoryManager";
+import TabManager from "../components/TabManager";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [tabsOpen, setTabsOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -60,7 +62,10 @@ export default function ProductsPage() {
                 </>
               }
             >
-              <ListItemText primary={p.name} secondary={`${p.price.toFixed(2)} €`} />
+              <ListItemText
+                primary={p.name}
+                secondary={`${p.price.toFixed(2)} € - Kategorie: ${p.category_name}, Tabs: ${p.tabs.map((tab) => tab.name).join(", ")}`}
+              />
             </ListItem>
             <Divider />
           </div>
@@ -75,13 +80,23 @@ export default function ProductsPage() {
         <Button variant="contained" onClick={() => navigate("/products/add") }>
           Produkt hinzufügen
         </Button>
-        <Button variant="outlined" onClick={() => setCategoriesOpen(true)}>
+        <Button variant="contained" color="secondary" onClick={() => setCategoriesOpen(true)}>
           Kategorien verwalten
+        </Button>
+        <Button variant="contained" color="secondary" onClick={() => setTabsOpen(true)}>
+          Tabs verwalten
         </Button>
       </Stack>
       <CategoryManager
         open={categoriesOpen}
         onClose={() => setCategoriesOpen(false)}
+        onChange={() => {
+          void load();
+        }}
+      />
+      <TabManager
+        open={tabsOpen}
+        onClose={() => setTabsOpen(false)}
         onChange={() => {
           void load();
         }}

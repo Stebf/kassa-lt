@@ -14,7 +14,7 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AppBar position="static">
+      <AppBar sx={{ backgroundColor: "#9BD8A0", color: "#333333" }} position="static">
         <Toolbar>
           <Typography variant="h6" sx={{ flexGrow: 1, cursor: "pointer" }} onClick={() => navigate("/")}>
             Kassa-LT

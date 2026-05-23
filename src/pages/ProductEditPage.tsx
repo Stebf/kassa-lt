@@ -17,9 +17,9 @@ export default function ProductEditPage() {
       .catch(() => setProduct(null));
   }, [id]);
 
-  async function handleSubmit(name?: string, price?: number, category?: string) {
+  async function handleSubmit(name?: string, price?: number, category?: string, tabIds?: number[]) {
     if (!product) return;
-    await updateProduct(product.id, name, price, category || undefined);
+    await updateProduct(product.id, name, price, category || undefined, tabIds);
     navigate("/products");
   }
 

@@ -22,7 +22,7 @@ fn add_product_persists_and_trims_name() {
     let (_dir, pool) = test_pool();
 
     let product =
-        add_product_with_pool(&pool, "  Espresso  ".to_string(), 2.5, None).expect("add product");
+        add_product_with_pool(&pool, "  Espresso  ".to_string(), 2.5, None, None).expect("add product");
 
     assert_eq!(product.name, "Espresso");
     assert_eq!(product.price, 2.5);
@@ -38,11 +38,11 @@ fn add_product_rejects_invalid_input() {
     let (_dir, pool) = test_pool();
 
     assert_eq!(
-        add_product_with_pool(&pool, "   ".to_string(), 1.0, None).unwrap_err(),
+        add_product_with_pool(&pool, "   ".to_string(), 1.0, None, None).unwrap_err(),
         "Product name cannot be empty"
     );
     assert_eq!(
-        add_product_with_pool(&pool, "Tea".to_string(), -0.1, None).unwrap_err(),
+        add_product_with_pool(&pool, "Tea".to_string(), -0.1, None, None).unwrap_err(),
         "Price must be greater than or equal to 0"
     );
 }
@@ -97,7 +97,7 @@ fn checkout_rejects_empty_cart() {
 fn add_and_get_product_round_trips_through_database() {
     let (_dir, pool) = test_pool();
 
-    let created = add_product_with_pool(&pool, "Coffee".to_string(), 2.50, None).unwrap();
+    let created = add_product_with_pool(&pool, "Coffee".to_string(), 2.50, None, None).unwrap();
     let fetched = get_product_with_pool(&pool, created.id).unwrap();
 
     assert_eq!(fetched.id, created.id);
@@ -109,9 +109,9 @@ fn add_and_get_product_round_trips_through_database() {
 fn update_product_can_change_name_only() {
     let (_dir, pool) = test_pool();
 
-    let created = add_product_with_pool(&pool, "Tea".to_string(), 1.20, None).unwrap();
+    let created = add_product_with_pool(&pool, "Tea".to_string(), 1.20, None, None).unwrap();
     let updated =
-        update_product_with_pool(&pool, created.id, Some("Green Tea".to_string()), None, None)
+        update_product_with_pool(&pool, created.id, Some("Green Tea".to_string()), None, None, None)
             .unwrap();
 
     assert_eq!(updated.id, created.id);
@@ -127,8 +127,8 @@ fn update_product_can_change_name_only() {
 fn update_product_can_change_price_only() {
     let (_dir, pool) = test_pool();
 
-    let created = add_product_with_pool(&pool, "Cake".to_string(), 3.40, None).unwrap();
-    let updated = update_product_with_pool(&pool, created.id, None, Some(4.10), None).unwrap();
+    let created = add_product_with_pool(&pool, "Cake".to_string(), 3.40, None, None).unwrap();
+    let updated = update_product_with_pool(&pool, created.id, None, Some(4.10), None, None).unwrap();
 
     assert_eq!(updated.id, created.id);
     assert_eq!(updated.name, "Cake");
@@ -143,7 +143,7 @@ fn update_product_can_change_price_only() {
 fn delete_product_removes_row() {
     let (_dir, pool) = test_pool();
 
-    let created = add_product_with_pool(&pool, "Latte".to_string(), 2.90, None).unwrap();
+    let created = add_product_with_pool(&pool, "Latte".to_string(), 2.90, None, None).unwrap();
     delete_product_with_pool(&pool, created.id).unwrap();
 
     assert_eq!(
@@ -200,7 +200,7 @@ fn delete_category_reassigns_products_to_default() {
 
     let category = add_category_with_pool(&pool, "Specials".to_string()).expect("add category");
     let product =
-        add_product_with_pool(&pool, "Soup".to_string(), 4.20, Some(category.name.clone()))
+        add_product_with_pool(&pool, "Soup".to_string(), 4.20, Some(category.name.clone()), None)
             .expect("add product");
 
     delete_category_with_pool(&pool, category.id).expect("delete category");
