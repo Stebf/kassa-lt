@@ -1,6 +1,19 @@
 import type { FormEvent } from "react";
 import { useState, useEffect } from "react";
-import { Box, Button, TextField, Alert, Stack, Select, MenuItem, FormControl, InputLabel } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  Checkbox,
+  Chip,
+  FormControl,
+  InputLabel,
+  ListItemText,
+  MenuItem,
+  Select,
+  Stack,
+  TextField,
+} from "@mui/material";
 import type { Product } from "../types/product";
 import { getCategories, getTabs } from "../api";
 import type { Category, Tab } from "../types/category";
@@ -164,17 +177,23 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
               multiple
               value={tabIds}
               onChange={(e) => setTabIds(e.target.value as number[])}
-              label="Tab"
-              renderValue={(selected) =>
-                tabs
-                  .filter((tab) => (selected as number[]).includes(tab.id))
-                  .map((tab) => tab.name)
-                  .join(", ")
-              }
+              label="Tabs"
+              renderValue={(selected) => {
+                const selectedTabs = tabs.filter((tab) => (selected as number[]).includes(tab.id));
+
+                return (
+                  <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", gap: 0.75 }}>
+                    {selectedTabs.map((tab) => (
+                      <Chip key={tab.id} label={tab.name} variant="outlined" size="small" />
+                    ))}
+                  </Stack>
+                );
+              }}
             >
               {tabs.map((tab) => (
                 <MenuItem key={tab.id} value={tab.id}>
-                  {tab.name}
+                  <Checkbox checked={tabIds.includes(tab.id)} size="small" />
+                  <ListItemText primary={tab.name} />
                 </MenuItem>
               ))}
             </Select>
