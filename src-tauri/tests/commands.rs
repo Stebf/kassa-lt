@@ -66,11 +66,12 @@ fn checkout_persists_order_and_items() {
         },
     ];
 
-    let order = checkout_with_pool(&pool, items.clone(), "card".to_string()).expect("checkout");
+    let order = checkout_with_pool(&pool, items.clone(), "card".to_string(), "Customer requested extra cream".to_string()).expect("checkout");
 
     assert_eq!(order.payment_method, "card");
     assert_eq!(order.total, 4.60);
     assert_eq!(order.items.len(), 2);
+    assert_eq!(order.comment, "Customer requested extra cream");
 
     let orders = get_orders_with_pool(&pool).expect("fetch orders");
     assert_eq!(orders.len(), 1);
@@ -87,7 +88,7 @@ fn checkout_rejects_empty_cart() {
     let (_dir, pool) = test_pool();
 
     assert_eq!(
-        checkout_with_pool(&pool, Vec::new(), "cash".to_string()).unwrap_err(),
+        checkout_with_pool(&pool, Vec::new(), "cash".to_string(), "".to_string()).unwrap_err(),
         "Cart is empty"
     );
 }
@@ -247,8 +248,8 @@ fn get_product_sales_count_returns_correct_counts() {
         quantity: 4,
     }];
 
-    checkout_with_pool(&pool, order_1.clone(), "card".to_string()).expect("checkout");
-    checkout_with_pool(&pool, order_2.clone(), "card".to_string()).expect("checkout");
+    checkout_with_pool(&pool, order_1.clone(), "card".to_string(), "".to_string()).expect("checkout");
+    checkout_with_pool(&pool, order_2.clone(), "card".to_string(), "".to_string()).expect("checkout");
 
     let counts = get_product_sales_count_with_pool(&pool).expect("get sales count");
     assert_eq!(counts.len(), 2);

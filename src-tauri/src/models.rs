@@ -31,6 +31,7 @@ pub struct Order {
     pub total: f64,
     pub payment_method: String,
     pub items: Vec<OrderItem>,
+    pub comment: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

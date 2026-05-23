@@ -37,8 +37,9 @@ pub fn checkout(
     pool: tauri::State<'_, DbPool>,
     items: Vec<CartItem>,
     payment_method: String,
+    comment: String,
 ) -> Result<Order, String> {
-    checkout_with_pool(pool.inner(), items, payment_method)
+    checkout_with_pool(pool.inner(), items, payment_method, comment)
 }
 
 #[tauri::command]

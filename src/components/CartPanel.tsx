@@ -6,7 +6,8 @@ import {
   Stack,
   List,
   ListItem,
-  ListItemText
+  ListItemText,
+  TextField
 } from "@mui/material";
 
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -41,6 +42,7 @@ export default function CartPanel() {
   const enqueueRemove = useCartStore((s) => s.enqueueRemove);
   const setItems = useCartStore((s) => s.setItems);
   const [openedCheckoutDialog, setOpenedCheckoutDialog] = useState<"cash" | "card" | null>(null);
+  const [checkoutComment, setCheckoutComment] = useState("");
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
@@ -53,8 +55,9 @@ export default function CartPanel() {
     try {
       setCheckoutLoading(true);
       setCheckoutError(null);
-      await checkout(items, type);
+      await checkout(items, type, checkoutComment.trim());
       setItems([]);
+      setCheckoutComment("");
       onSuccess?.();
     } catch (err) {
       console.error("Checkout failed:", err);
@@ -106,6 +109,16 @@ export default function CartPanel() {
           </ListItem>
         ))}
       </List>
+
+      <TextField
+        id="checkout-notes"
+        label="Checkout Notes"
+        multiline
+        rows={2}
+        fullWidth
+        value={checkoutComment}
+        onChange={(e) => setCheckoutComment(e.target.value)}
+      />
 
       <Divider sx={{ my: 2 }} />
 

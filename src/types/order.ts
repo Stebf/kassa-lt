@@ -11,6 +11,7 @@ export type Order = {
   total: number;
   payment_method: "cash" | "card";
   items: OrderItem[];
+  comment: string;
 };
 
 export type ProductSalesCount = {
