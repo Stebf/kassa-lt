@@ -3,12 +3,13 @@ use tauri_plugin_store::StoreExt;
 use crate::backup_worker;
 use crate::config;
 use crate::database::{
-    add_category_with_pool, add_product_with_pool, checkout_with_pool, delete_category_with_pool,
-    delete_product_with_pool, get_categories_with_pool, get_orders_with_pool,
-    get_product_sales_count_with_pool, get_product_with_pool, get_products_with_pool,
-    update_category_with_pool, update_product_with_pool, DbPool,
+    add_category_with_pool, add_product_with_pool, add_tab_with_pool, checkout_with_pool,
+    delete_category_with_pool, delete_product_with_pool, delete_tab_with_pool,
+    get_categories_with_pool, get_orders_with_pool, get_product_sales_count_with_pool,
+    get_product_with_pool, get_products_with_pool, get_tabs_with_pool, update_category_with_pool,
+    update_product_with_pool, update_tab_with_pool, DbPool,
 };
-use crate::models::{CartItem, Order, Product, ProductSalesCount};
+use crate::models::{CartItem, Order, Product, ProductSalesCount, Tab};
 
 #[tauri::command]
 pub fn get_products(pool: tauri::State<'_, DbPool>) -> Result<Vec<Product>, String> {
@@ -21,8 +22,9 @@ pub fn add_product(
     name: String,
     price: f64,
     category: Option<String>,
+    tab_ids: Option<Vec<i32>>,
 ) -> Result<Product, String> {
-    add_product_with_pool(pool.inner(), name, price, category)
+    add_product_with_pool(pool.inner(), name, price, category, tab_ids)
 }
 
 #[tauri::command]
@@ -66,8 +68,29 @@ pub fn update_product(
     name: Option<String>,
     price: Option<f64>,
     category: Option<String>,
+    tab_ids: Option<Vec<i32>>,
 ) -> Result<Product, String> {
-    update_product_with_pool(pool.inner(), id, name, price, category)
+    update_product_with_pool(pool.inner(), id, name, price, category, tab_ids)
+}
+
+#[tauri::command]
+pub fn get_tabs(pool: tauri::State<'_, DbPool>) -> Result<Vec<Tab>, String> {
+    get_tabs_with_pool(pool.inner())
+}
+
+#[tauri::command]
+pub fn add_tab(pool: tauri::State<'_, DbPool>, name: String) -> Result<Tab, String> {
+    add_tab_with_pool(pool.inner(), name)
+}
+
+#[tauri::command]
+pub fn update_tab(pool: tauri::State<'_, DbPool>, id: i32, name: String) -> Result<Tab, String> {
+    update_tab_with_pool(pool.inner(), id, name)
+}
+
+#[tauri::command]
+pub fn delete_tab(pool: tauri::State<'_, DbPool>, id: i32) -> Result<(), String> {
+    delete_tab_with_pool(pool.inner(), id)
 }
 
 #[tauri::command]

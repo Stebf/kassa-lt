@@ -13,6 +13,13 @@ pub struct Product {
     pub price: f64,
     pub category_id: i32,
     pub category_name: String,
+    pub tabs: Vec<Tab>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Tab {
+    pub id: i32,
+    pub name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
