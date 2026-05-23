@@ -80,10 +80,10 @@ export default function ProductsPage() {
         <Button variant="contained" onClick={() => navigate("/products/add") }>
           Produkt hinzufügen
         </Button>
-        <Button variant="outlined" onClick={() => setCategoriesOpen(true)}>
+        <Button variant="contained" color="secondary" onClick={() => setCategoriesOpen(true)}>
           Kategorien verwalten
         </Button>
-        <Button variant="outlined" onClick={() => setTabsOpen(true)}>
+        <Button variant="contained" color="secondary" onClick={() => setTabsOpen(true)}>
           Tabs verwalten
         </Button>
       </Stack>
