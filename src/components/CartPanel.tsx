@@ -85,12 +85,12 @@ export default function CartPanel() {
   );
 
   return (
-    <Paper sx={{ p: 2, height: "100%" }}>
+    <Paper sx={{ p: 2, height: "100%", display: "flex", flexDirection: "column", minHeight: 0 }}>
       <Typography variant="h5">
         <ShoppingCartIcon /> Warenkorb
       </Typography>
 
-      <List sx={{ minHeight: 300 }}>
+      <List sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
         {items.map((item: CartItem) => (
           <ListItem key={item.id}>
             <ListItemText
@@ -112,7 +112,7 @@ export default function CartPanel() {
 
       <TextField
         id="checkout-notes"
-        label="Checkout Notes"
+        label="Anmerkungen zur Bestellung"
         multiline
         rows={2}
         fullWidth
