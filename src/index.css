@@ -57,6 +57,9 @@
   text-align: center;
   border-inline: 1px solid var(--border);
   min-height: 100svh;
+  /* ensure content stays above system UI (notches / nav bars) */
+  padding-bottom: calc(constant(safe-area-inset-bottom) + 16px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
   display: flex;
   flex-direction: column;
   box-sizing: border-box;

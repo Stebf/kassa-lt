@@ -4,14 +4,12 @@ type TabVisual = {
 };
 
 const tabPalette: TabVisual[] = [
-  { backgroundColor: "#333333", textColor: "#ffffff" },
+  { backgroundColor: "#1E1E1E", textColor: "#ffffff" },
   { backgroundColor: "#8A4760", textColor: "#ffffff" },
   { backgroundColor: "#087F73", textColor: "#ffffff" },
-  { backgroundColor: "#9BD8A0", textColor: "#ffffff" },
-  { backgroundColor: "#a16207", textColor: "#ffffff" },
-  { backgroundColor: "#7c3aed", textColor: "#ffffff" },
-  { backgroundColor: "#0369a1", textColor: "#ffffff" },
-  { backgroundColor: "#166534", textColor: "#ffffff" },
+  { backgroundColor: "#018F2F", textColor: "#ffffff" },
+  { backgroundColor: "#FF9500", textColor: "#ffffff" },
+  { backgroundColor: "#009F9A", textColor: "#ffffff" },
 ];
 
 export function getTabVisual(tabId: number): TabVisual {

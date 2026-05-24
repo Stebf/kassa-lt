@@ -47,6 +47,17 @@ export default function ProductsPage() {
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
         <Typography variant="h5">Produkte</Typography>
       </Box>
+      <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+        <Button variant="contained" onClick={() => navigate("/products/add") }>
+          Produkt hinzufügen
+        </Button>
+        <Button variant="contained" color="secondary" onClick={() => setCategoriesOpen(true)}>
+          Kategorien verwalten
+        </Button>
+        <Button variant="contained" color="secondary" onClick={() => setTabsOpen(true)}>
+          Tabs verwalten
+        </Button>
+      </Stack>
       <List>
         {products.map((p) => (
           <div key={p.id}>
@@ -76,17 +87,6 @@ export default function ProductsPage() {
           </ListItem>
         )}
       </List>
-      <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-        <Button variant="contained" onClick={() => navigate("/products/add") }>
-          Produkt hinzufügen
-        </Button>
-        <Button variant="contained" color="secondary" onClick={() => setCategoriesOpen(true)}>
-          Kategorien verwalten
-        </Button>
-        <Button variant="contained" color="secondary" onClick={() => setTabsOpen(true)}>
-          Tabs verwalten
-        </Button>
-      </Stack>
       <CategoryManager
         open={categoriesOpen}
         onClose={() => setCategoriesOpen(false)}

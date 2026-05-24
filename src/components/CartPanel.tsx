@@ -85,7 +85,7 @@ export default function CartPanel() {
   );
 
   return (
-    <Paper sx={{ p: 2, height: "100%", display: "flex", flexDirection: "column", minHeight: 0 }}>
+    <Paper sx={{ p: 2, height: "100%", display: "flex", flexDirection: "column", minHeight: 0, pb: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
       <Typography variant="h5">
         <ShoppingCartIcon /> Warenkorb
       </Typography>

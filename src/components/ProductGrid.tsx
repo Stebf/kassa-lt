@@ -184,12 +184,13 @@ export default function ProductGrid({ reloadKey = 0 }: ProductGridProps) {
                           textTransform: "none",
                           color: activeTabVisual.backgroundColor,
                            backgroundColor: "transparent",
-                          transition: "transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease",
+                          transition: "transform 160ms ease, opacity 160ms ease",
                           "&:hover": {
                              backgroundColor: `${activeTabVisual.backgroundColor}10`,
                             opacity: 0.94,
-                            transform: "translateY(-1px)",
                           },
+                          border: 4,
+                          borderColor: `${activeTabVisual.backgroundColor}60`,
                         }}
                       >
                         <span>{item.name}</span>
