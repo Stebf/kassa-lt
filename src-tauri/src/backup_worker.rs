@@ -123,19 +123,6 @@ async fn run_backup_once(
         .map_err(|e| e.to_string())??;
     }
 
-    let client = ClientBuilder::new()
-        .set_host(config.webdav_url.clone())
-        .set_auth(match config.auth_method {
-            config::WebDavAuthMethod::Basic => {
-                Auth::Basic(config.username.clone(), config.password.clone())
-            }
-            config::WebDavAuthMethod::Digest => {
-                Auth::Digest(config.username.clone(), config.password.clone())
-            }
-        })
-        .build()
-        .map_err(|e| e.to_string())?;
-
     let content = fs::read(backup_path).await.map_err(|e| e.to_string())?;
     info!(
         "backup_worker: uploading; filename={} bytes={}",
@@ -143,14 +130,66 @@ async fn run_backup_once(
         content.len()
     );
 
-    if let Err(e) = client
-        .put(&format!("/{}", database_filename), content)
-        .await
-    {
-        error!("backup_worker: upload failed; url={} err={}", config.webdav_url, e);
-        return Err(e.to_string());
+    match config.protocol {
+        config::BackupProtocol::HttpPut => {
+            let full_path = format!(
+                "{}/{}",
+                config.webdav_url.trim_end_matches('/'),
+                database_filename
+            );
+            let client = tauri_plugin_http::reqwest::Client::new();
+            let response = client
+                .put(&full_path)
+                .basic_auth(&config.username, Some(&config.password))
+                .body(content.clone())
+                .send()
+                .await
+                .map_err(|e| e.to_string())?;
+
+            if !response.status().is_success() {
+                let status = response.status();
+                let error_text = response.text().await.unwrap_or_default();
+                error!(
+                    "backup_worker: upload failed; url={} status={} err={}",
+                    config.webdav_url, status, error_text
+                );
+                return Err(format!("Upload failed with status: {}", status));
+            }
+            info!(
+                "backup_worker: upload via http PUT succeeded; url={} status={}",
+                config.webdav_url,
+                response.status()
+            );
+        }
+        config::BackupProtocol::WebDAV => {
+            let client = ClientBuilder::new()
+                .set_host(config.webdav_url.clone())
+                .set_auth(match config.auth_method {
+                    config::WebDavAuthMethod::Basic => {
+                        Auth::Basic(config.username.clone(), config.password.clone())
+                    }
+                    config::WebDavAuthMethod::Digest => {
+                        Auth::Digest(config.username.clone(), config.password.clone())
+                    }
+                })
+                .build()
+                .map_err(|e| e.to_string())?;
+            if let Err(e) = client
+                .put(&format!("/{}", database_filename), content)
+                .await
+            {
+                error!(
+                    "backup_worker: upload failed; url={} err={}",
+                    config.webdav_url, e
+                );
+                return Err(e.to_string());
+            }
+            info!(
+                "backup_worker: upload via webdav succeeded; filename={}",
+                database_filename
+            );
+        }
     }
-    info!("backup_worker: upload succeeded; filename={}", database_filename);
 
     Ok(())
 }

@@ -90,6 +90,7 @@ export default function SettingsPanel() {
     const [backupEnabled, setBackupEnabled] = useState<boolean>(true);
     const [isLoadingConfig, setIsLoadingConfig] = useState(true);
     const [isLoadingBackupState, setIsLoadingBackupState] = useState(true);
+    const [protocol, setProtocol] = useState<string>("WebDAV");
 
     async function handleSubmit(e: FormEvent<HTMLFormElement>) {
         e.preventDefault()
@@ -100,8 +101,9 @@ export default function SettingsPanel() {
         const username = formData.get("username") as string;
         const password = formData.get("password") as string;
         const authMethod = formData.get("authMethod") as string;
+        const protocol = formData.get("protocol") as string;
 
-        const config = { webdav_url: webdavUrl, username: username, password: password, auth_method: authMethod, enabled: backupEnabled };
+        const config = { protocol: protocol, webdav_url: webdavUrl, username: username, password: password, auth_method: authMethod, enabled: backupEnabled };
         await setBackupConfig(config as any);
     }
 
@@ -114,6 +116,7 @@ export default function SettingsPanel() {
                 (document.querySelector('input[name="username"]') as HTMLInputElement).value = config.username;
                 (document.querySelector('input[name="password"]') as HTMLInputElement).value = config.password;
                 setAuthMethod(config.auth_method);
+                setProtocol(config.protocol);
                 setBackupEnabled((config as any).enabled ?? true);
             }
             catch (e) {
@@ -186,11 +189,24 @@ export default function SettingsPanel() {
             </Alert>
             <form onSubmit={handleSubmit}>
                 <Stack spacing={2}>
-                    <TextField fullWidth label="WebDAV URL" name="webdavUrl" />
+                    <FormControl fullWidth>
+                        <InputLabel id="protocol-label">Protocol</InputLabel>
+                        <Select
+                            labelId="protocol-label"
+                            name="protocol"
+                            label="Protocol"
+                            value={protocol}
+                            onChange={(e) => setProtocol(e.target.value)}
+                        >
+                            <MenuItem value={"WebDAV"}>WebDAV</MenuItem>
+                            <MenuItem value={"HttpPut"}>HTTP(S) PUT</MenuItem>
+                        </Select>
+                    </FormControl>
+                    <TextField fullWidth label="URL" name="webdavUrl" />
                     <TextField fullWidth label="Username" name="username" />
                     <TextField fullWidth label="Password" name="password" type="password" />
                     <FormControl fullWidth>
-                        <InputLabel id="auth-method-label">Auth Method</InputLabel>
+                        <InputLabel id="auth-method-label">Auth Method (only relevant for WebDAV protocol)</InputLabel>
                         <Select
                             labelId="auth-method-label"
                             name="authMethod"
