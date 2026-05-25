@@ -3,4 +3,5 @@ export type BackupWorkerConfig = {
     username: string;
     password: string;
     auth_method: string;
+    enabled?: boolean;
 }

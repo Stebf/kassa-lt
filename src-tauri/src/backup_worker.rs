@@ -88,6 +88,10 @@ impl BackupWorker {
         .await
     }
 
+    pub fn is_enabled(&self) -> bool {
+        self.config_rx.borrow().enabled
+    }
+
     pub fn get_last_state(&self) -> BackupState {
         self.last_state_rx.borrow().clone()
     }
@@ -203,15 +207,19 @@ async fn start_backup_worker(
             }
             _ = interval.tick() => {
                 let config = config_rx.borrow_and_update().clone();
-                info!("starting backup worker with URL {}", config.webdav_url);
-                let _ = run_backup_and_record_state(
-                    pool,
-                    instance_id.clone(),
-                    temp_dir.clone(),
-                    config,
-                    backup_state_tx.clone(),
-                )
-                .await;
+                info!("backup worker tick; enabled={} url={}", config.enabled, config.webdav_url);
+                if config.enabled {
+                    let _ = run_backup_and_record_state(
+                        pool,
+                        instance_id.clone(),
+                        temp_dir.clone(),
+                        config,
+                        backup_state_tx.clone(),
+                    )
+                    .await;
+                } else {
+                    info!("backup worker is disabled; skipping run");
+                }
             }
         }
     }

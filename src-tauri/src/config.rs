@@ -14,6 +14,7 @@ pub struct BackupWorkerConfig {
     pub username: String,
     pub password: String,
     pub auth_method: WebDavAuthMethod,
+    pub enabled: bool,
 }
 
 pub fn get_backup_config<R: tauri::Runtime>(
@@ -38,6 +39,7 @@ pub fn default_backup_config() -> BackupWorkerConfig {
         username: "alice".to_string(),
         password: "secret1234".to_string(),
         auth_method: WebDavAuthMethod::Digest,
+        enabled: true,
     }
 }
 
