@@ -9,11 +9,19 @@ pub enum WebDavAuthMethod {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum BackupProtocol {
+    WebDAV,
+    HttpPut,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct BackupWorkerConfig {
+    pub protocol: BackupProtocol,
     pub webdav_url: String,
     pub username: String,
     pub password: String,
     pub auth_method: WebDavAuthMethod,
+    pub enabled: bool,
 }
 
 pub fn get_backup_config<R: tauri::Runtime>(
@@ -34,10 +42,12 @@ pub fn set_backup_config<R: tauri::Runtime>(
 
 pub fn default_backup_config() -> BackupWorkerConfig {
     BackupWorkerConfig {
+        protocol: BackupProtocol::WebDAV,
         webdav_url: "http://localhost:8080".to_string(),
         username: "alice".to_string(),
         password: "secret1234".to_string(),
         auth_method: WebDavAuthMethod::Digest,
+        enabled: true,
     }
 }
 

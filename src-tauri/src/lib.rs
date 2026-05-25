@@ -15,6 +15,7 @@ use tauri_plugin_store::StoreExt;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::default().build())
@@ -95,6 +96,7 @@ pub fn run() {
             commands::get_backup_config,
             commands::set_backup_config,
             commands::get_backup_state,
+            commands::run_backup_now,
             exports::export_orders_csv,
         ])
         .run(tauri::generate_context!())

@@ -21,8 +21,8 @@ fn test_pool() -> (TempDir, DbPool) {
 fn add_product_persists_and_trims_name() {
     let (_dir, pool) = test_pool();
 
-    let product =
-        add_product_with_pool(&pool, "  Espresso  ".to_string(), 2.5, None, None).expect("add product");
+    let product = add_product_with_pool(&pool, "  Espresso  ".to_string(), 2.5, None, None)
+        .expect("add product");
 
     assert_eq!(product.name, "Espresso");
     assert_eq!(product.price, 2.5);
@@ -66,7 +66,13 @@ fn checkout_persists_order_and_items() {
         },
     ];
 
-    let order = checkout_with_pool(&pool, items.clone(), "card".to_string(), "Customer requested extra cream".to_string()).expect("checkout");
+    let order = checkout_with_pool(
+        &pool,
+        items.clone(),
+        "card".to_string(),
+        "Customer requested extra cream".to_string(),
+    )
+    .expect("checkout");
 
     assert_eq!(order.payment_method, "card");
     assert_eq!(order.total, 4.60);
@@ -110,9 +116,15 @@ fn update_product_can_change_name_only() {
     let (_dir, pool) = test_pool();
 
     let created = add_product_with_pool(&pool, "Tea".to_string(), 1.20, None, None).unwrap();
-    let updated =
-        update_product_with_pool(&pool, created.id, Some("Green Tea".to_string()), None, None, None)
-            .unwrap();
+    let updated = update_product_with_pool(
+        &pool,
+        created.id,
+        Some("Green Tea".to_string()),
+        None,
+        None,
+        None,
+    )
+    .unwrap();
 
     assert_eq!(updated.id, created.id);
     assert_eq!(updated.name, "Green Tea");
@@ -128,7 +140,8 @@ fn update_product_can_change_price_only() {
     let (_dir, pool) = test_pool();
 
     let created = add_product_with_pool(&pool, "Cake".to_string(), 3.40, None, None).unwrap();
-    let updated = update_product_with_pool(&pool, created.id, None, Some(4.10), None, None).unwrap();
+    let updated =
+        update_product_with_pool(&pool, created.id, None, Some(4.10), None, None).unwrap();
 
     assert_eq!(updated.id, created.id);
     assert_eq!(updated.name, "Cake");
@@ -199,9 +212,14 @@ fn delete_category_reassigns_products_to_default() {
     let (_dir, pool) = test_pool();
 
     let category = add_category_with_pool(&pool, "Specials".to_string()).expect("add category");
-    let product =
-        add_product_with_pool(&pool, "Soup".to_string(), 4.20, Some(category.name.clone()), None)
-            .expect("add product");
+    let product = add_product_with_pool(
+        &pool,
+        "Soup".to_string(),
+        4.20,
+        Some(category.name.clone()),
+        None,
+    )
+    .expect("add product");
 
     delete_category_with_pool(&pool, category.id).expect("delete category");
 
@@ -248,8 +266,10 @@ fn get_product_sales_count_returns_correct_counts() {
         quantity: 4,
     }];
 
-    checkout_with_pool(&pool, order_1.clone(), "card".to_string(), "".to_string()).expect("checkout");
-    checkout_with_pool(&pool, order_2.clone(), "card".to_string(), "".to_string()).expect("checkout");
+    checkout_with_pool(&pool, order_1.clone(), "card".to_string(), "".to_string())
+        .expect("checkout");
+    checkout_with_pool(&pool, order_2.clone(), "card".to_string(), "".to_string())
+        .expect("checkout");
 
     let counts = get_product_sales_count_with_pool(&pool).expect("get sales count");
     assert_eq!(counts.len(), 2);
