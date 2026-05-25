@@ -1009,8 +1009,11 @@ pub fn add_tab_with_pool(pool: &DbPool, name: String) -> Result<Tab, String> {
         return Err("Tab already exists".to_string());
     }
 
-    tx.execute("INSERT INTO tabs (name) VALUES (?1)", params![normalized_name])
-        .map_err(|e| e.to_string())?;
+    tx.execute(
+        "INSERT INTO tabs (name) VALUES (?1)",
+        params![normalized_name],
+    )
+    .map_err(|e| e.to_string())?;
 
     let id = tx.last_insert_rowid() as i32;
     let tab = Tab {
@@ -1041,12 +1044,16 @@ pub fn update_tab_with_pool(pool: &DbPool, id: i32, name: String) -> Result<Tab,
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
     let old_tab = tx
-        .query_row("SELECT id, name FROM tabs WHERE id = ?1", params![id], |row| {
-            Ok(Tab {
-                id: row.get(0)?,
-                name: row.get(1)?,
-            })
-        })
+        .query_row(
+            "SELECT id, name FROM tabs WHERE id = ?1",
+            params![id],
+            |row| {
+                Ok(Tab {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                })
+            },
+        )
         .optional()
         .map_err(|e| e.to_string())?;
 
@@ -1105,12 +1112,16 @@ pub fn delete_tab_with_pool(pool: &DbPool, id: i32) -> Result<(), String> {
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
     let old_tab = tx
-        .query_row("SELECT id, name FROM tabs WHERE id = ?1", params![id], |row| {
-            Ok(Tab {
-                id: row.get(0)?,
-                name: row.get(1)?,
-            })
-        })
+        .query_row(
+            "SELECT id, name FROM tabs WHERE id = ?1",
+            params![id],
+            |row| {
+                Ok(Tab {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                })
+            },
+        )
         .optional()
         .map_err(|e| e.to_string())?;
 
