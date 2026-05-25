@@ -1167,11 +1167,13 @@ pub fn get_tabs_with_pool(pool: &DbPool) -> Result<Vec<Tab>, String> {
     Ok(tabs)
 }
 
-pub fn backup_with_pool(pool: &DbPool, backup_path: &PathBuf) -> Result<(), String> {
+pub fn backup_with_pool(pool: &DbPool, backup_path: &PathBuf) -> Result<u64, String> {
     let conn = pool.get().map_err(|e| e.to_string())?;
 
     conn.backup(rusqlite::MAIN_DB, backup_path, None)
         .map_err(|e| e.to_string())?;
 
-    Ok(())
+    // Get resulting file size for diagnostics
+    let metadata = std::fs::metadata(backup_path).map_err(|e| e.to_string())?;
+    Ok(metadata.len())
 }

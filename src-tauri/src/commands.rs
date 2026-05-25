@@ -151,3 +151,10 @@ pub fn get_backup_state(
 ) -> Result<backup_worker::BackupState, String> {
     Ok(backup_worker.get_last_state())
 }
+
+#[tauri::command]
+pub async fn run_backup_now(
+    backup_worker: tauri::State<'_, backup_worker::BackupWorker>,
+) -> Result<backup_worker::BackupState, String> {
+    Ok(backup_worker.run_backup_now().await)
+}

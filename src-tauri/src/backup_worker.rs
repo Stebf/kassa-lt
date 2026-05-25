@@ -54,6 +54,8 @@ impl BackupWorker {
     pub fn start(&self) {
         let this = self.clone();
 
+        info!("backup_worker: starting; instance_id={}", this.instance_id);
+
         tauri::async_runtime::spawn(async move {
             match start_backup_worker(
                 this.pool,
@@ -65,13 +67,25 @@ impl BackupWorker {
             .await
             {
                 Ok(_) => {
-                    info!("finished worker");
+                    info!("backup_worker: finished worker");
                 }
                 Err(e) => {
-                    error!("failed! {}", e);
+                    error!("backup_worker: failed: {}", e);
                 }
             }
         });
+    }
+
+    pub async fn run_backup_now(&self) -> BackupState {
+        let config = self.config_rx.borrow().clone();
+        run_backup_and_record_state(
+            self.pool.clone(),
+            self.instance_id.clone(),
+            self.temp_dir.clone(),
+            config,
+            self.last_state_tx.clone(),
+        )
+        .await
     }
 
     pub fn get_last_state(&self) -> BackupState {
@@ -79,7 +93,7 @@ impl BackupWorker {
     }
 }
 
-async fn backup_worker_loop(
+async fn run_backup_once(
     pool: DbPool,
     instance_id: &str,
     temp_dir: &PathBuf,
@@ -119,12 +133,51 @@ async fn backup_worker_loop(
         .map_err(|e| e.to_string())?;
 
     let content = fs::read(backup_path).await.map_err(|e| e.to_string())?;
-    client
+    info!(
+        "backup_worker: uploading; filename={} bytes={}",
+        database_filename,
+        content.len()
+    );
+
+    if let Err(e) = client
         .put(&format!("/{}", database_filename), content)
         .await
-        .map_err(|e| e.to_string())?;
+    {
+        error!("backup_worker: upload failed; url={} err={}", config.webdav_url, e);
+        return Err(e.to_string());
+    }
+    info!("backup_worker: upload succeeded; filename={}", database_filename);
 
     Ok(())
+}
+
+async fn run_backup_and_record_state(
+    pool: DbPool,
+    instance_id: String,
+    temp_dir: PathBuf,
+    config: config::BackupWorkerConfig,
+    backup_state_tx: tokio::sync::watch::Sender<BackupState>,
+) -> BackupState {
+    let now = chrono::Utc::now();
+    let new_state = match run_backup_once(pool, &instance_id, &temp_dir, &config).await {
+        Ok(()) => {
+            info!("successfully backed up database");
+            BackupState::Successful { timestamp: now }
+        }
+        Err(e) => {
+            error!("failed to backup database due to: {}", e);
+            BackupState::Failed {
+                timestamp: now,
+                error: e,
+            }
+        }
+    };
+
+    if let Err(e) = backup_state_tx.send(new_state.clone()) {
+        warn!("Failed to update backup state: {}", e)
+    }
+
+    new_state
 }
 
 async fn start_backup_worker(
@@ -137,7 +190,6 @@ async fn start_backup_worker(
     let mut interval = time::interval(Duration::from_mins(30));
     loop {
         let pool = pool.clone();
-        let now = chrono::Utc::now();
 
         tokio::select! {
             config = config_rx.changed() => {
@@ -152,20 +204,14 @@ async fn start_backup_worker(
             _ = interval.tick() => {
                 let config = config_rx.borrow_and_update().clone();
                 info!("starting backup worker with URL {}", config.webdav_url);
-                let new_state = match backup_worker_loop(pool, &instance_id, &temp_dir, &config).await {
-                    Ok(()) => {
-                        info!("successfully backed up database");
-                        BackupState::Successful{ timestamp: now }
-                    }
-                    Err(e) => {
-                        error!("failed to backup database due to: {}", e);
-                        BackupState::Failed{ timestamp: now, error: e }
-                    }
-                };
-
-                if let Err(e) = backup_state_tx.send(new_state) {
-                    warn!("Failed to update backup state: {}", e)
-                }
+                let _ = run_backup_and_record_state(
+                    pool,
+                    instance_id.clone(),
+                    temp_dir.clone(),
+                    config,
+                    backup_state_tx.clone(),
+                )
+                .await;
             }
         }
     }

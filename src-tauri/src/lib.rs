@@ -95,6 +95,7 @@ pub fn run() {
             commands::get_backup_config,
             commands::set_backup_config,
             commands::get_backup_state,
+            commands::run_backup_now,
             exports::export_orders_csv,
         ])
         .run(tauri::generate_context!())

@@ -1,12 +1,8 @@
-import { Box, Button, FormControl, InputLabel, MenuItem, Select, Stack, TextField, Alert, Typography } from '@mui/material';
+import { Alert, Box, Button, FormControl, InputLabel, MenuItem, Select, Stack, TextField, Typography } from '@mui/material';
 import { invoke } from '@tauri-apps/api/core';
 import { useEffect, useState, type FormEvent } from 'react';
-import { getBackupConfig, setBackupConfig } from '../api';
-
-type BackupState =
-    | { type: "NotRunYet" }
-    | { type: "Successful", timestamp: string }
-    | { type: "Failed", timestamp: string, error: string }
+import { getBackupConfig, runBackupNow, setBackupConfig} from '../api';
+import type { BackupState } from '../types/backup';
 
 function formatTimestamp(timestamp: string): string {
     const date = new Date(timestamp);
@@ -39,6 +35,8 @@ function printBackupState(state: BackupState): string {
 export default function SettingsPanel() {
     const [authMethod, setAuthMethod] = useState("Basic");
     const [backupState, setBackupState] = useState<BackupState>({ type: "NotRunYet" });
+    const [isRunningBackup, setIsRunningBackup] = useState(false);
+    const [backupActionFeedback, setBackupActionFeedback] = useState<{ severity: "success" | "error"; message: string } | null>(null);
 
     async function handleSubmit(e: FormEvent<HTMLFormElement>) {
         e.preventDefault()
@@ -80,6 +78,36 @@ export default function SettingsPanel() {
         loadConfig();
     }, []);
 
+    async function handleRunBackupNow() {
+        setIsRunningBackup(true);
+        setBackupActionFeedback(null);
+
+        try {
+            const state = await runBackupNow();
+            setBackupState(state);
+
+            switch (state.type) {
+                case "Successful":
+                    setBackupActionFeedback({ severity: "success", message: "Backup completed successfully." });
+                    break;
+                case "Failed":
+                    setBackupActionFeedback({ severity: "error", message: `Backup failed: ${state.error}` });
+                    break;
+                default:
+                    setBackupActionFeedback({ severity: "success", message: "Backup worker ran, but no state was returned." });
+                    break;
+            }
+        } catch (error) {
+            console.error("Failed to run backup now", error);
+            setBackupActionFeedback({
+                severity: "error",
+                message: error instanceof Error ? error.message : "Failed to start backup.",
+            });
+        } finally {
+            setIsRunningBackup(false);
+        }
+    }
+
     return (
         <Box sx={{ p: 2 }}>
             <Alert severity="info" variant="outlined" sx={{ mb: 2, textAlign: 'left' }}>
@@ -109,9 +137,24 @@ export default function SettingsPanel() {
                             <MenuItem value={"Digest"}>Digest</MenuItem>
                         </Select>
                     </FormControl>
-                    <Button type="submit">Speichern</Button>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                        <Button type="submit" variant="contained">Speichern</Button>
+                        <Button
+                            type="button"
+                            variant="outlined"
+                            onClick={handleRunBackupNow}
+                            disabled={isRunningBackup}
+                        >
+                            {isRunningBackup ? "Backup läuft..." : "Backup jetzt starten"}
+                        </Button>
+                    </Stack>
                 </Stack >
             </form>
+            {backupActionFeedback && (
+                <Alert severity={backupActionFeedback.severity} sx={{ mt: 2 }}>
+                    {backupActionFeedback.message}
+                </Alert>
+            )}
             <Typography variant="body2" color="text.secondary">
                 {printBackupState(backupState)}
             </Typography>
