@@ -17,6 +17,7 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 
 import { useState } from "react";
 import { useCartStore } from "../store/cartStore";
+import { useUiStore } from "../store/uiStore";
 import { checkout } from "../api";
 import type { CartItem } from "../types/cart";
 import CardCheckoutDialog from "./CardCheckoutDialog";
@@ -42,9 +43,10 @@ export default function CartPanel() {
   const enqueueRemove = useCartStore((s) => s.enqueueRemove);
   const setItems = useCartStore((s) => s.setItems);
   const [openedCheckoutDialog, setOpenedCheckoutDialog] = useState<"cash" | "card" | null>(null);
-  const [checkoutComment, setCheckoutComment] = useState("");
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const checkoutComment = useUiStore((s) => s.checkoutComment);
+  const setCheckoutComment = useUiStore((s) => s.setCheckoutComment);
 
   async function handleCheckout(
     type: "cash" | "card",
