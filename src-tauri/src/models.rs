@@ -13,6 +13,8 @@ pub struct Product {
     pub price: f64,
     pub category_id: i32,
     pub category_name: String,
+    pub sales_limit: Option<i32>,
+    pub sales_used: i32,
     pub tabs: Vec<Tab>,
 }
 

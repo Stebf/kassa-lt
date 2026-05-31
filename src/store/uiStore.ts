@@ -5,6 +5,8 @@ type UiStore = {
   setLastActiveTabId: (id: number | null) => void;
   checkoutComment: string;
   setCheckoutComment: (comment: string) => void;
+  productsReloadKey: number;
+  bumpProductsReloadKey: () => void;
 };
 
 export const useUiStore = create<UiStore>((set) => ({
@@ -12,4 +14,6 @@ export const useUiStore = create<UiStore>((set) => ({
   setLastActiveTabId: (id) => set({ lastActiveTabId: id }),
   checkoutComment: "",
   setCheckoutComment: (comment) => set({ checkoutComment: comment }),
+  productsReloadKey: 0,
+  bumpProductsReloadKey: () => set((s) => ({ productsReloadKey: s.productsReloadKey + 1 })),
 }));

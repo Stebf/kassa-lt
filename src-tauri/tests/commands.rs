@@ -21,11 +21,14 @@ fn test_pool() -> (TempDir, DbPool) {
 fn add_product_persists_and_trims_name() {
     let (_dir, pool) = test_pool();
 
-    let product = add_product_with_pool(&pool, "  Espresso  ".to_string(), 2.5, None, None)
-        .expect("add product");
+    let product =
+        add_product_with_pool(&pool, "  Espresso  ".to_string(), 2.5, None, None, None)
+            .expect("add product");
 
     assert_eq!(product.name, "Espresso");
     assert_eq!(product.price, 2.5);
+    assert_eq!(product.sales_limit, None);
+    assert_eq!(product.sales_used, 0);
 
     let products = get_products_with_pool(&pool).expect("fetch products");
     assert_eq!(products.len(), 1);
@@ -38,12 +41,39 @@ fn add_product_rejects_invalid_input() {
     let (_dir, pool) = test_pool();
 
     assert_eq!(
-        add_product_with_pool(&pool, "   ".to_string(), 1.0, None, None).unwrap_err(),
+        add_product_with_pool(&pool, "   ".to_string(), 1.0, None, None, None).unwrap_err(),
         "Product name cannot be empty"
     );
     assert_eq!(
-        add_product_with_pool(&pool, "Tea".to_string(), -0.1, None, None).unwrap_err(),
+        add_product_with_pool(&pool, "Tea".to_string(), -0.1, None, None, None).unwrap_err(),
         "Price must be greater than or equal to 0"
+    );
+}
+
+#[test]
+fn add_product_can_set_sales_limit() {
+    let (_dir, pool) = test_pool();
+
+    let product =
+        add_product_with_pool(&pool, "Juice".to_string(), 3.10, None, None, Some(12))
+            .expect("add product");
+
+    assert_eq!(product.sales_limit, Some(12));
+    assert_eq!(product.sales_used, 0);
+
+    let fetched = get_product_with_pool(&pool, product.id).expect("fetch product");
+    assert_eq!(fetched.sales_limit, Some(12));
+    assert_eq!(fetched.sales_used, 0);
+}
+
+#[test]
+fn add_product_rejects_negative_sales_limit() {
+    let (_dir, pool) = test_pool();
+
+    assert_eq!(
+        add_product_with_pool(&pool, "Milk".to_string(), 1.90, None, None, Some(-1))
+            .unwrap_err(),
+        "Sales limit must be greater than or equal to 0"
     );
 }
 
@@ -51,15 +81,20 @@ fn add_product_rejects_invalid_input() {
 fn checkout_persists_order_and_items() {
     let (_dir, pool) = test_pool();
 
+    let tea = add_product_with_pool(&pool, "Tea".to_string(), 1.25, None, None, None)
+        .expect("add tea");
+    let cake = add_product_with_pool(&pool, "Cake".to_string(), 2.10, None, None, None)
+        .expect("add cake");
+
     let items = vec![
         CartItem {
-            id: 1,
+            id: tea.id,
             name: "Tea".to_string(),
             price: 1.25,
             quantity: 2,
         },
         CartItem {
-            id: 2,
+            id: cake.id,
             name: "Cake".to_string(),
             price: 2.10,
             quantity: 1,
@@ -103,23 +138,28 @@ fn checkout_rejects_empty_cart() {
 fn add_and_get_product_round_trips_through_database() {
     let (_dir, pool) = test_pool();
 
-    let created = add_product_with_pool(&pool, "Coffee".to_string(), 2.50, None, None).unwrap();
+    let created = add_product_with_pool(&pool, "Coffee".to_string(), 2.50, None, None, None)
+        .unwrap();
     let fetched = get_product_with_pool(&pool, created.id).unwrap();
 
     assert_eq!(fetched.id, created.id);
     assert_eq!(fetched.name, "Coffee");
     assert_eq!(fetched.price, 2.50);
+    assert_eq!(fetched.sales_limit, None);
+    assert_eq!(fetched.sales_used, 0);
 }
 
 #[test]
 fn update_product_can_change_name_only() {
     let (_dir, pool) = test_pool();
 
-    let created = add_product_with_pool(&pool, "Tea".to_string(), 1.20, None, None).unwrap();
+    let created = add_product_with_pool(&pool, "Tea".to_string(), 1.20, None, None, None)
+        .unwrap();
     let updated = update_product_with_pool(
         &pool,
         created.id,
         Some("Green Tea".to_string()),
+        None,
         None,
         None,
         None,
@@ -136,12 +176,28 @@ fn update_product_can_change_name_only() {
 }
 
 #[test]
+fn update_product_can_clear_sales_limit() {
+    let (_dir, pool) = test_pool();
+
+    let created = add_product_with_pool(&pool, "Soda".to_string(), 1.50, None, None, Some(5)).unwrap();
+
+    // clear the sales limit by passing Some(None) through the command API
+    let updated = update_product_with_pool(&pool, created.id, None, None, None, None, Some(None)).unwrap();
+
+    assert_eq!(updated.sales_limit, None);
+
+    let fetched = get_product_with_pool(&pool, created.id).unwrap();
+    assert_eq!(fetched.sales_limit, None);
+}
+
+#[test]
 fn update_product_can_change_price_only() {
     let (_dir, pool) = test_pool();
 
-    let created = add_product_with_pool(&pool, "Cake".to_string(), 3.40, None, None).unwrap();
-    let updated =
-        update_product_with_pool(&pool, created.id, None, Some(4.10), None, None).unwrap();
+    let created = add_product_with_pool(&pool, "Cake".to_string(), 3.40, None, None, None)
+        .unwrap();
+    let updated = update_product_with_pool(&pool, created.id, None, Some(4.10), None, None, None)
+        .unwrap();
 
     assert_eq!(updated.id, created.id);
     assert_eq!(updated.name, "Cake");
@@ -156,7 +212,8 @@ fn update_product_can_change_price_only() {
 fn delete_product_removes_row() {
     let (_dir, pool) = test_pool();
 
-    let created = add_product_with_pool(&pool, "Latte".to_string(), 2.90, None, None).unwrap();
+    let created = add_product_with_pool(&pool, "Latte".to_string(), 2.90, None, None, None)
+        .unwrap();
     delete_product_with_pool(&pool, created.id).unwrap();
 
     assert_eq!(
@@ -218,6 +275,7 @@ fn delete_category_reassigns_products_to_default() {
         4.20,
         Some(category.name.clone()),
         None,
+        None,
     )
     .expect("add product");
 
@@ -245,22 +303,27 @@ fn default_category_cannot_be_deleted() {
 fn get_product_sales_count_returns_correct_counts() {
     let (_dir, pool) = test_pool();
 
+    let tea = add_product_with_pool(&pool, "Tea".to_string(), 1.25, None, None, None)
+        .expect("add tea");
+    let cake = add_product_with_pool(&pool, "Cake".to_string(), 2.10, None, None, None)
+        .expect("add cake");
+
     let order_1 = vec![
         CartItem {
-            id: 1,
+            id: tea.id,
             name: "Tea".to_string(),
             price: 1.25,
             quantity: 2,
         },
         CartItem {
-            id: 2,
+            id: cake.id,
             name: "Cake".to_string(),
             price: 2.10,
             quantity: 1,
         },
     ];
     let order_2 = vec![CartItem {
-        id: 1,
+        id: tea.id,
         name: "Tea".to_string(),
         price: 1.25,
         quantity: 4,
@@ -277,4 +340,48 @@ fn get_product_sales_count_returns_correct_counts() {
     let cake_count = counts.iter().find(|c| c.product_name == "Cake").unwrap();
     assert_eq!(tea_count.count, 6);
     assert_eq!(cake_count.count, 1);
+}
+
+#[test]
+fn checkout_increments_sales_used_and_blocks_when_limit_is_exceeded() {
+    let (_dir, pool) = test_pool();
+
+    let product =
+        add_product_with_pool(&pool, "Soda".to_string(), 1.50, None, None, Some(3))
+            .expect("add product");
+
+    checkout_with_pool(
+        &pool,
+        vec![CartItem {
+            id: product.id,
+            name: product.name.clone(),
+            price: product.price,
+            quantity: 2,
+        }],
+        "cash".to_string(),
+        "".to_string(),
+    )
+    .expect("first checkout");
+
+    let fetched = get_product_with_pool(&pool, product.id).expect("fetch product");
+    assert_eq!(fetched.sales_used, 2);
+    assert_eq!(fetched.sales_limit, Some(3));
+
+    let error = checkout_with_pool(
+        &pool,
+        vec![CartItem {
+            id: product.id,
+            name: product.name.clone(),
+            price: product.price,
+            quantity: 2,
+        }],
+        "cash".to_string(),
+        "".to_string(),
+    )
+    .unwrap_err();
+
+    assert_eq!(error, "Sales limit exceeded for product Soda");
+
+    let fetched = get_product_with_pool(&pool, product.id).expect("fetch product again");
+    assert_eq!(fetched.sales_used, 2);
 }

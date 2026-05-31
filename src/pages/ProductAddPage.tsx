@@ -6,12 +6,12 @@ import { addProduct } from "../api";
 export default function ProductAddPage() {
   const navigate = useNavigate();
 
-  async function handleSubmit(name?: string, price?: number, category?: string, tabIds?: number[]) {
+  async function handleSubmit(name?: string, price?: number, category?: string, tabIds?: number[], _categoryId?: number, salesLimit?: number | null) {
     if (!name || price === undefined) {
       throw new Error("Name und Preis benötigt");
     }
 
-    await addProduct(name, price, category, tabIds);
+    await addProduct(name, price, category, tabIds, salesLimit);
     navigate("/products");
   }
 

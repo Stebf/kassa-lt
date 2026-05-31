@@ -18,6 +18,16 @@ pub fn validate_price(price: f64) -> Result<(), String> {
     Ok(())
 }
 
+pub fn validate_sales_limit(sales_limit: Option<i32>) -> Result<(), String> {
+    if let Some(limit) = sales_limit {
+        if limit < 0 {
+            return Err("Sales limit must be greater than or equal to 0".to_string());
+        }
+    }
+
+    Ok(())
+}
+
 pub fn price_to_cents(price: f64) -> i32 {
     (price * 100.0).round() as i32
 }

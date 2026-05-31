@@ -171,6 +171,28 @@ fn migrate_products_tab_id_column(conn: &rusqlite::Connection) -> Result<(), Str
     Ok(())
 }
 
+fn migrate_product_sales_state_table(conn: &rusqlite::Connection) -> Result<(), String> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS product_sales_state (
+            product_id INTEGER PRIMARY KEY,
+            sales_limit INTEGER,
+            sales_used INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY(product_id) REFERENCES products(id) ON DELETE CASCADE
+        );",
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "INSERT OR IGNORE INTO product_sales_state (product_id, sales_limit, sales_used)
+         SELECT id, NULL, 0
+         FROM products",
+        [],
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
 pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
     let conn = pool.get().map_err(|e| e.to_string())?;
 
@@ -201,6 +223,13 @@ pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
             PRIMARY KEY(product_id, tab_id),
             FOREIGN KEY(product_id) REFERENCES products(id) ON DELETE CASCADE,
             FOREIGN KEY(tab_id) REFERENCES tabs(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS product_sales_state (
+            product_id INTEGER PRIMARY KEY,
+            sales_limit INTEGER,
+            sales_used INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY(product_id) REFERENCES products(id) ON DELETE CASCADE
         );
 
         CREATE TABLE IF NOT EXISTS orders (
@@ -235,6 +264,7 @@ pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
     migrate_orders_comment_column(&conn)?;
     migrate_products_tabs_table(&conn)?;
     migrate_products_tab_id_column(&conn)?;
+    migrate_product_sales_state_table(&conn)?;
 
     // Ensure default category exists
     conn.execute(
@@ -261,9 +291,10 @@ pub fn get_products_with_pool(pool: &DbPool) -> Result<Vec<Product>, String> {
 
     let mut stmt = conn
         .prepare(
-            "SELECT p.id, p.name, p.price_cents, c.id, c.name
+            "SELECT p.id, p.name, p.price_cents, c.id, c.name, s.sales_limit, COALESCE(s.sales_used, 0)
          FROM products p
          JOIN categories c ON p.category_id = c.id
+         LEFT JOIN product_sales_state s ON s.product_id = p.id
          ORDER BY p.id",
         )
         .map_err(|e| e.to_string())?;
@@ -276,13 +307,15 @@ pub fn get_products_with_pool(pool: &DbPool) -> Result<Vec<Product>, String> {
                 row.get::<_, i32>(2)?,
                 row.get::<_, i32>(3)?,
                 row.get::<_, String>(4)?,
+                row.get::<_, Option<i32>>(5)?,
+                row.get::<_, i32>(6)?,
             ))
         })
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?
         .into_iter()
-        .map(|(id, name, price_cents, category_id, category_name)| {
+        .map(|(id, name, price_cents, category_id, category_name, sales_limit, sales_used)| {
             let tabs = get_tabs_for_product(&conn, id)?;
             Ok(Product {
                 id,
@@ -290,6 +323,8 @@ pub fn get_products_with_pool(pool: &DbPool) -> Result<Vec<Product>, String> {
                 price: price_cents as f64 / 100.0,
                 category_id,
                 category_name,
+                sales_limit,
+                sales_used,
                 tabs,
             })
         })
@@ -397,9 +432,17 @@ pub fn add_product_with_pool(
     price: f64,
     category: Option<String>,
     tab_ids: Option<Vec<i32>>,
+    sales_limit: Option<i32>,
 ) -> Result<Product, String> {
     let normalized_name = logic::normalize_product_name(&name)?;
     logic::validate_price(price)?;
+    // Validate incoming sales_limit: only allow None or non-negative integers.
+    if let Some(v) = sales_limit {
+        if v < 0 {
+            return Err("Sales limit must be greater than or equal to 0".to_string());
+        }
+    }
+    let normalized_sales_limit = sales_limit;
 
     let mut conn = pool.get().map_err(|e| e.to_string())?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
@@ -421,6 +464,12 @@ pub fn add_product_with_pool(
     .map_err(|e| e.to_string())?;
 
     let id = tx.last_insert_rowid() as i32;
+
+    tx.execute(
+        "INSERT INTO product_sales_state (product_id, sales_limit, sales_used) VALUES (?1, ?2, 0)",
+        params![id, normalized_sales_limit],
+    )
+    .map_err(|e| e.to_string())?;
 
     for tab_id in &final_tab_ids {
         tx.execute(
@@ -445,6 +494,8 @@ pub fn add_product_with_pool(
                 price,
                 category_id,
                 category_name: category_name_for_audit,
+                sales_limit,
+                sales_used: 0,
                 tabs: tabs.clone(),
             })
             .unwrap_or_else(|_| String::new())
@@ -459,6 +510,8 @@ pub fn add_product_with_pool(
         price,
         category_id,
         category_name,
+        sales_limit: normalized_sales_limit,
+        sales_used: 0,
         tabs,
     })
 }
@@ -493,6 +546,41 @@ pub fn checkout_with_pool(
     let mut conn = pool.get().map_err(|e| e.to_string())?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
+    let mut items_by_product_id: HashMap<i32, i32> = HashMap::new();
+    for item in &items {
+        *items_by_product_id.entry(item.id).or_insert(0) += item.quantity;
+    }
+
+    let mut quota_updates = Vec::with_capacity(items_by_product_id.len());
+    for (product_id, quantity) in &items_by_product_id {
+        let product = tx
+            .query_row(
+                "SELECT p.name, s.sales_limit, COALESCE(s.sales_used, 0)
+                 FROM products p
+                 LEFT JOIN product_sales_state s ON s.product_id = p.id
+                 WHERE p.id = ?1",
+                params![product_id],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, Option<i32>>(1)?,
+                        row.get::<_, i32>(2)?,
+                    ))
+                },
+            )
+            .optional()
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| format!("Product not found: {}", product_id))?;
+
+        if let Some(sales_limit) = product.1 {
+            if product.2 + *quantity > sales_limit {
+                return Err(format!("Sales limit exceeded for product {}", product.0));
+            }
+        }
+
+        quota_updates.push((*product_id, *quantity));
+    }
+
     let order_uuid = Uuid::new_v4().to_string();
     let created_at = Utc::now().to_rfc3339();
 
@@ -511,6 +599,14 @@ pub fn checkout_with_pool(
             "INSERT INTO order_items (order_id, name, price_cents, quantity) VALUES (?1, ?2, ?3, ?4)",
             params![&order_id, &item.name, price_cents, item.quantity],
         ).map_err(|e| e.to_string())?;
+    }
+
+    for (product_id, quantity) in quota_updates {
+        tx.execute(
+            "UPDATE product_sales_state SET sales_used = sales_used + ?2 WHERE product_id = ?1",
+            params![product_id, quantity],
+        )
+        .map_err(|e| e.to_string())?;
     }
 
     tx.execute(
@@ -632,9 +728,10 @@ pub fn get_product_with_pool(pool: &DbPool, id: i32) -> Result<Product, String> 
 
     let mut stmt = conn
         .prepare(
-            "SELECT p.id, p.name, p.price_cents, c.id, c.name
+            "SELECT p.id, p.name, p.price_cents, c.id, c.name, s.sales_limit, COALESCE(s.sales_used, 0)
          FROM products p
          JOIN categories c ON p.category_id = c.id
+         LEFT JOIN product_sales_state s ON s.product_id = p.id
          WHERE p.id = ?1",
         )
         .map_err(|e| e.to_string())?;
@@ -649,6 +746,8 @@ pub fn get_product_with_pool(pool: &DbPool, id: i32) -> Result<Product, String> 
         let price_cents: i32 = row.get::<_, i32>(2).map_err(|e| e.to_string())?;
         let category_id: i32 = row.get::<_, i32>(3).map_err(|e| e.to_string())?;
         let category_name: String = row.get::<_, String>(4).map_err(|e| e.to_string())?;
+        let sales_limit: Option<i32> = row.get::<_, Option<i32>>(5).map_err(|e| e.to_string())?;
+        let sales_used: i32 = row.get::<_, i32>(6).map_err(|e| e.to_string())?;
         let tabs = get_tabs_for_product(&conn, id)?;
 
         let product = Product {
@@ -657,6 +756,8 @@ pub fn get_product_with_pool(pool: &DbPool, id: i32) -> Result<Product, String> 
             price: price_cents as f64 / 100.0,
             category_id,
             category_name,
+            sales_limit,
+            sales_used,
             tabs,
         };
 
@@ -673,15 +774,17 @@ pub fn update_product_with_pool(
     price: Option<f64>,
     category: Option<String>,
     tab_ids: Option<Vec<i32>>,
+    sales_limit: Option<Option<i32>>,
 ) -> Result<Product, String> {
     let mut conn = pool.get().map_err(|e| e.to_string())?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
     let current = tx
         .query_row(
-            "SELECT p.id, p.name, p.price_cents, p.category_id, c.name
+            "SELECT p.id, p.name, p.price_cents, p.category_id, c.name, s.sales_limit, COALESCE(s.sales_used, 0)
          FROM products p
          JOIN categories c ON p.category_id = c.id
+         LEFT JOIN product_sales_state s ON s.product_id = p.id
          WHERE p.id = ?1",
             params![id],
             |row| {
@@ -691,6 +794,8 @@ pub fn update_product_with_pool(
                     row.get::<_, i32>(2)?,
                     row.get::<_, i32>(3)?,
                     row.get::<_, String>(4)?,
+                    row.get::<_, Option<i32>>(5)?,
+                    row.get::<_, i32>(6)?,
                 ))
             },
         )
@@ -704,6 +809,8 @@ pub fn update_product_with_pool(
         price: current.2 as f64 / 100.0,
         category_id: current.3,
         category_name: current.4.clone(),
+        sales_limit: current.5,
+        sales_used: current.6,
         tabs: current_tabs.clone(),
     };
 
@@ -724,6 +831,19 @@ pub fn update_product_with_pool(
         new_category
     } else {
         current.4
+    };
+
+    // Normalize incoming sentinel -1 to NULL: sales_limit is Option<Option<i32>>
+    let final_sales_limit = if let Some(new_sales_limit) = sales_limit {
+        // new_sales_limit: Option<i32>
+        if let Some(v) = new_sales_limit {
+            if v < 0 {
+                return Err("Sales limit must be greater than or equal to 0".to_string());
+            }
+        }
+        new_sales_limit
+    } else {
+        current.5
     };
 
     let final_tab_ids = if let Some(new_tab_ids) = tab_ids {
@@ -750,6 +870,18 @@ pub fn update_product_with_pool(
         .map_err(|e| e.to_string())?;
 
     tx.execute(
+        "INSERT OR IGNORE INTO product_sales_state (product_id, sales_limit, sales_used) VALUES (?1, ?2, ?3)",
+        params![id, final_sales_limit, current.6],
+    )
+    .map_err(|e| e.to_string())?;
+
+    tx.execute(
+        "UPDATE product_sales_state SET sales_limit = ?2 WHERE product_id = ?1",
+        params![id, final_sales_limit],
+    )
+    .map_err(|e| e.to_string())?;
+
+    tx.execute(
         "DELETE FROM product_tabs WHERE product_id = ?1",
         params![id],
     )
@@ -770,7 +902,7 @@ pub fn update_product_with_pool(
             "products",
             id.to_string(),
             serde_json::to_string(&old_values).unwrap_or_else(|_| String::new()),
-            serde_json::to_string(&Product { id, name: final_name.clone(), price: final_price, category_id: final_category_id, category_name: final_category_name.clone(), tabs: final_tabs.clone() }).unwrap_or_else(|_| String::new())
+            serde_json::to_string(&Product { id, name: final_name.clone(), price: final_price, category_id: final_category_id, category_name: final_category_name.clone(), sales_limit: final_sales_limit, sales_used: current.6, tabs: final_tabs.clone() }).unwrap_or_else(|_| String::new())
         ],
     ).map_err(|e| e.to_string())?;
 
@@ -784,6 +916,8 @@ pub fn update_product_with_pool(
         price: final_price,
         category_id: final_category_id,
         category_name: final_category_name,
+        sales_limit: final_sales_limit,
+        sales_used: current.6,
         tabs: final_tabs,
     })
 }
