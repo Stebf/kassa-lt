@@ -11,6 +11,7 @@ import {
 
 import { useEffect, useMemo, useState } from "react";
 import { useCartStore } from "../store/cartStore";
+import { useUiStore } from "../store/uiStore";
 import { getProducts, getTabs } from "../api";
 import type { Product } from "../types/product";
 import type { Tab as ProductTab } from "../types/category";
@@ -28,6 +29,9 @@ export default function ProductGrid({ reloadKey = 0 }: ProductGridProps) {
   const [activeTabId, setActiveTabId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const lastActiveTabId = useUiStore((s) => s.lastActiveTabId);
+  const setLastActiveTabId = useUiStore((s) => s.setLastActiveTabId);
 
   useEffect(() => {
     setLoading(true);
@@ -74,10 +78,20 @@ export default function ProductGrid({ reloadKey = 0 }: ProductGridProps) {
 
     const exists = tabEntries.some((entry) => entry.tabId === activeTabId);
 
+    if (activeTabId === null) {
+      if (lastActiveTabId !== null && tabEntries.some((e) => e.tabId === lastActiveTabId)) {
+        setActiveTabId(lastActiveTabId);
+        return;
+      }
+
+      setActiveTabId(tabEntries[0].tabId);
+      return;
+    }
+
     if (!exists) {
       setActiveTabId(tabEntries[0].tabId);
     }
-  }, [tabEntries, activeTabId]);
+  }, [tabEntries, activeTabId, lastActiveTabId]);
 
   const selectedTabProducts =
     activeTabId === 1
@@ -122,7 +136,10 @@ export default function ProductGrid({ reloadKey = 0 }: ProductGridProps) {
         <>
           <Tabs
             value={activeTabId}
-            onChange={(_, newValue: number) => setActiveTabId(newValue)}
+            onChange={(_, newValue: number) => {
+              setActiveTabId(newValue);
+              setLastActiveTabId(newValue);
+            }}
             variant="scrollable"
             scrollButtons="auto"
             aria-label="Produkttabs"
