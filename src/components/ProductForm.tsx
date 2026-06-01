@@ -126,7 +126,7 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
           tabChanged ? normalizedTabIds : undefined,
           categoryChanged ? categoryId : undefined,
           salesLimitParam,
-        );
+        );}
       } else {
         const trimmedName = name.trim();
         const parsedPrice = parseFloat(price);
