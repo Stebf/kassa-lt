@@ -434,12 +434,7 @@ pub fn add_product_with_pool(
 ) -> Result<Product, String> {
     let normalized_name = logic::normalize_product_name(&name)?;
     logic::validate_price(price)?;
-    // Validate incoming sales_limit: only allow None or non-negative integers.
-    if let Some(v) = sales_limit {
-        if v < 0 {
-            return Err("Sales limit must be greater than or equal to 0".to_string());
-        }
-    }
+    logic::validate_sales_limit(sales_limit)?;
     let normalized_sales_limit = sales_limit;
 
     let mut conn = pool.get().map_err(|e| e.to_string())?;
@@ -831,14 +826,12 @@ pub fn update_product_with_pool(
         current.4
     };
 
-    // Normalize incoming sentinel -1 to NULL: sales_limit is Option<Option<i32>>
+    // sales_limit is Option<Option<i32>>:
+    // - None: unchanged
+    // - Some(None): clear the limit
+    // - Some(Some(v)): set a new limit
     let final_sales_limit = if let Some(new_sales_limit) = sales_limit {
-        // new_sales_limit: Option<i32>
-        if let Some(v) = new_sales_limit {
-            if v < 0 {
-                return Err("Sales limit must be greater than or equal to 0".to_string());
-            }
-        }
+        logic::validate_sales_limit(new_sales_limit)?;
         new_sales_limit
     } else {
         current.5

@@ -111,13 +111,12 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
               setError("Verkaufslimit benötigt, wenn Limit aktiviert ist");
               return;
             }
-            const parsed = parseInt(salesLimit, 10);
-            if (isNaN(parsed) || parsed < 0) {
+            const parsed = Number(salesLimit);
+            if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 0) {
               setError("Verkaufslimit muss >= 0 sein");
               return;
             }
             salesLimitParam = parsed;
-          }
         }
 
         await onSubmit(
@@ -141,8 +140,10 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
         let salesLimitParam: number | null;
         if (limitEnabled) {
           if (salesLimit === "") throw new Error("Verkaufslimit benötigt, wenn Limit aktiviert ist");
-          const parsed = parseInt(salesLimit, 10);
-          if (isNaN(parsed) || parsed < 0) throw new Error("Verkaufslimit muss >= 0 sein");
+          const parsed = Number(salesLimit);
+          if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 0) {
+            throw new Error("Verkaufslimit muss >= 0 sein");
+          }
           salesLimitParam = parsed;
         } else {
           salesLimitParam = null;
