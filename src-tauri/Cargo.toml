@@ -1,6 +1,6 @@
 [package]
 name = "kassa-lt"
-version = "0.1.4"
+version = "1.0.0"
 description = "Kassa-LT packaged using Tauri"
 authors = ["Stebf"]
 license = "BSD-3-Clause license"
