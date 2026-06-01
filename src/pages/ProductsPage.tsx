@@ -59,8 +59,9 @@ export default function ProductsPage() {
         </Button>
       </Stack>
       <List>
-        {products.map((p) => (
-          <div key={p.id}>
+        {products.map((p) => {
+          const formatted_limit = p.sales_limit !== null ? `${p.sales_limit}` : "∞"
+          return (<div key={p.id}>
             <ListItem
               secondaryAction={
                 <>
@@ -75,12 +76,12 @@ export default function ProductsPage() {
             >
               <ListItemText
                 primary={p.name}
-                secondary={`${p.price.toFixed(2)} € - Kategorie: ${p.category_name}, Tabs: ${p.tabs.map((tab) => tab.name).join(", ")}`}
+                secondary={`${p.price.toFixed(2)} € - ${p.sales_used}/${formatted_limit} - Kategorie: ${p.category_name}, Tabs: ${p.tabs.map((tab) => tab.name).join(", ")}`}
               />
             </ListItem>
             <Divider />
           </div>
-        ))}
+        )})}
         {products.length === 0 && !loading && (
           <ListItem>
             <ListItemText primary="Keine Produkte vorhanden" />
