@@ -18,7 +18,7 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import { useState } from "react";
 import { useCartStore } from "../store/cartStore";
 import { useUiStore } from "../store/uiStore";
-import { checkout } from "../api";
+import { checkout, getProducts } from "../api";
 import type { CartItem } from "../types/cart";
 import CardCheckoutDialog from "./CardCheckoutDialog";
 import CashCheckoutDialog from "./CashCheckoutDialog";
@@ -42,6 +42,7 @@ export default function CartPanel() {
   const items = useCartStore((s) => s.items);
   const enqueueRemove = useCartStore((s) => s.enqueueRemove);
   const setItems = useCartStore((s) => s.setItems);
+  const bumpProductsReloadKey = useUiStore((s) => s.bumpProductsReloadKey);
   const [openedCheckoutDialog, setOpenedCheckoutDialog] = useState<"cash" | "card" | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -59,6 +60,8 @@ export default function CartPanel() {
       setCheckoutError(null);
       await checkout(items, type, checkoutComment.trim());
       setItems([]);
+      // refresh products so sales_used changes are reflected in the grid
+      bumpProductsReloadKey();
       setCheckoutComment("");
       onSuccess?.();
     } catch (err) {
@@ -66,6 +69,39 @@ export default function CartPanel() {
       setCheckoutError(getErrorMessage(err));
     } finally {
       setCheckoutLoading(false);
+    }
+  }
+
+  async function checkQuotas(): Promise<string | null> {
+    if (!items.length) return null;
+
+    try {
+      const products = await getProducts();
+      const byId = new Map<number, typeof products[0]>();
+      for (const p of products) byId.set(p.id, p);
+
+      const violations: string[] = [];
+
+      for (const item of items) {
+        const prod = byId.get(item.id);
+        if (!prod) continue;
+
+        if (prod.sales_limit !== null) {
+          const projected = prod.sales_used + item.quantity;
+          if (projected > prod.sales_limit) {
+            violations.push(`${prod.name} (Limit: ${prod.sales_limit}, aktuell: ${prod.sales_used}, im Warenkorb: ${item.quantity})`);
+          }
+        }
+      }
+
+      if (violations.length) {
+        return `Folgende Produkte überschreiten das Limit: ${violations.join(", ")}`;
+      }
+
+      return null;
+    } catch (err) {
+      console.error("Failed to check product quotas:", err);
+      return "Fehler beim Überprüfen der Produktlimits.";
     }
   }
 
@@ -137,7 +173,15 @@ export default function CartPanel() {
       <Stack spacing={2} sx={{ mt: 2 }}>
         <Button
           variant="contained"
-          onClick={() => setOpenedCheckoutDialog("cash")}
+          onClick={async () => {
+            setCheckoutError(null);
+            const err = await checkQuotas();
+            if (err) {
+              setCheckoutError(err);
+              return;
+            }
+            setOpenedCheckoutDialog("cash");
+          }}
           disabled={!items.length || checkoutLoading}
           startIcon={<PaymentsIcon />}
         >
@@ -146,7 +190,15 @@ export default function CartPanel() {
 
         <Button
           variant="outlined"
-          onClick={() => setOpenedCheckoutDialog("card")}
+          onClick={async () => {
+            setCheckoutError(null);
+            const err = await checkQuotas();
+            if (err) {
+              setCheckoutError(err);
+              return;
+            }
+            setOpenedCheckoutDialog("card");
+          }}
           disabled={!items.length || checkoutLoading}
           startIcon={<CreditCardIcon />}
         >

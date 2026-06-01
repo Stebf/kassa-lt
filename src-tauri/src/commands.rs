@@ -23,8 +23,9 @@ pub fn add_product(
     price: f64,
     category: Option<String>,
     tab_ids: Option<Vec<i32>>,
+    sales_limit: Option<i32>,
 ) -> Result<Product, String> {
-    add_product_with_pool(pool.inner(), name, price, category, tab_ids)
+    add_product_with_pool(pool.inner(), name, price, category, tab_ids, sales_limit)
 }
 
 #[tauri::command]
@@ -69,8 +70,15 @@ pub fn update_product(
     price: Option<f64>,
     category: Option<String>,
     tab_ids: Option<Vec<i32>>,
+    sales_limit: Option<i32>,
+    sales_limit_changed: Option<bool>,
 ) -> Result<Product, String> {
-    update_product_with_pool(pool.inner(), id, name, price, category, tab_ids)
+    let sales_limit_param: Option<Option<i32>> = match sales_limit_changed {
+        Some(true) => Some(sales_limit),
+        _ => None,
+    };
+
+    update_product_with_pool(pool.inner(), id, name, price, category, tab_ids, sales_limit_param)
 }
 
 #[tauri::command]

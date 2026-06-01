@@ -32,11 +32,12 @@ export default function ProductGrid({ reloadKey = 0 }: ProductGridProps) {
 
   const lastActiveTabId = useUiStore((s) => s.lastActiveTabId);
   const setLastActiveTabId = useUiStore((s) => s.setLastActiveTabId);
+  const productsReloadKey = useUiStore((s) => s.productsReloadKey);
 
   useEffect(() => {
     setLoading(true);
     load();
-  }, [reloadKey]);
+  }, [reloadKey, productsReloadKey]);
 
   async function load() {
     try {
@@ -190,7 +191,9 @@ export default function ProductGrid({ reloadKey = 0 }: ProductGridProps) {
                       <Button
                         fullWidth
                         onClick={() => handleAdd(item.id)}
+                        disabled={item.sales_limit !== null && item.sales_used >= item.sales_limit}
                         sx={{
+                          position: "relative",
                           height: 100,
                           fontSize: 20,
                           fontWeight: 600,
@@ -210,8 +213,28 @@ export default function ProductGrid({ reloadKey = 0 }: ProductGridProps) {
                           borderColor: `${activeTabVisual.backgroundColor}60`,
                         }}
                       >
+                        {item.sales_limit !== null && (
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              position: "absolute",
+                              top: 6,
+                              right: 8,
+                              fontSize: 12,
+                              backgroundColor: `${activeTabVisual.backgroundColor}14`,
+                              padding: "2px 6px",
+                              borderRadius: 8,
+                              color: activeTabVisual.backgroundColor,
+                              fontWeight: 700,
+                              lineHeight: 1,
+                            }}
+                          >
+                            {Math.max(0, item.sales_limit - item.sales_used)} übrig
+                          </Typography>
+                        )}
                         <span>{item.name}</span>
                         <span>{item.price.toFixed(2)} €</span>
+                        
                       </Button>
                     </Paper>
                   </Grid>

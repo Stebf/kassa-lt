@@ -31,10 +31,11 @@ export async function addProduct(
   price: number,
   category: string = "Default",
   tabIds: number[] = [1],
+  salesLimit?: number | null,
 ): Promise<Product> {
   if (!name.trim()) throw new Error("Product name required");
   if (price < 0) throw new Error("Price must be >= 0");
-  return invoke<Product>("add_product", { name: name.trim(), price, category, tabIds });
+  return invoke<Product>("add_product", { name: name.trim(), price, category, tabIds, salesLimit });
 }
 
 export async function getProducts(): Promise<Product[]> {
@@ -55,17 +56,22 @@ export async function updateProduct(
   price?: number,
   category?: string,
   tabIds?: number[],
+  salesLimit?: number | null,
 ): Promise<Product> {
   // console.log("Updating product", { id, name, price });
   if (name !== undefined && !name.trim()) throw new Error("Product name cannot be empty");
   if (price !== undefined && price < 0) throw new Error("Price must be >= 0");
-  return invoke<Product>("update_product", {
+  const payload = {
     id,
     name: name?.trim(),
     price,
     category: category?.trim(),
     tabIds,
-  });
+    salesLimit,
+    salesLimitChanged: salesLimit !== undefined,
+  };
+  const res = await invoke<Product>("update_product", payload);
+  return res;
 }
 
 export async function deleteProduct(id: number): Promise<void> {

@@ -5,6 +5,7 @@ import {
   Box,
   Button,
   Checkbox,
+  FormControlLabel,
   Chip,
   FormControl,
   InputLabel,
@@ -21,7 +22,7 @@ import { getTabVisual } from "../theme/tabColors";
 
 type Props = {
   initial?: Product | null;
-  onSubmit: (name?: string, price?: number, category?: string, tabIds?: number[], categoryId?: number) => Promise<void>;
+  onSubmit: (name?: string, price?: number, category?: string, tabIds?: number[], categoryId?: number, salesLimit?: number | null) => Promise<void>;
   onDelete?: () => Promise<void> | undefined;
   isEdit?: boolean;
 };
@@ -31,6 +32,11 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
   const [price, setPrice] = useState(initial ? String(initial.price) : "");
   const [categoryId, setCategoryId] = useState(initial?.category_id ?? 1);
   const [tabIds, setTabIds] = useState<number[]>(initial?.tabs.map((tab) => tab.id) ?? [1]);
+  const [salesLimit, setSalesLimit] = useState<string>(
+    initial?.sales_limit !== undefined && initial?.sales_limit !== null ? String(initial.sales_limit) : "",
+  );
+  // `limitEnabled` means there is an active limit. For new products default is disabled.
+  const [limitEnabled, setLimitEnabled] = useState<boolean>(initial?.sales_limit != null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
@@ -57,6 +63,8 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
     setPrice(initial ? String(initial.price) : "");
     setCategoryId(initial?.category_id ?? 1);
     setTabIds(initial?.tabs.map((tab) => tab.id) ?? [1]);
+    setSalesLimit(initial?.sales_limit !== undefined && initial?.sales_limit !== null ? String(initial.sales_limit) : "");
+    setLimitEnabled(initial?.sales_limit != null);
   }, [initial]);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -79,7 +87,11 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
           normalizedTabIds.length !== initialTabIds.length ||
           normalizedTabIds.some((value, index) => value !== initialTabIds[index]);
 
-        if (!updatedName && !updatedPrice && !categoryChanged && !tabChanged) {
+        const initialSalesStr = initial?.sales_limit !== undefined && initial?.sales_limit !== null ? String(initial?.sales_limit) : "";
+        const initialLimitEnabled = initial?.sales_limit != null;
+        const limitChanged = salesLimit !== initialSalesStr || limitEnabled !== initialLimitEnabled;
+
+        if (!updatedName && !updatedPrice && !categoryChanged && !tabChanged && !limitChanged) {
           setError("Mindestens ein Feld muss geändert werden");
           return;
         }
@@ -89,12 +101,31 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
           return;
         }
 
+        let salesLimitParam: number | null | undefined = undefined;
+        if (limitChanged) {
+          if (!limitEnabled) {
+            // disabled -> clear limit
+            salesLimitParam = null;
+          } else {
+            if (salesLimit === "") {
+              setError("Verkaufslimit benötigt, wenn Limit aktiviert ist");
+              return;
+            }
+            const parsed = Number(salesLimit);
+            if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 0) {
+              setError("Verkaufslimit muss >= 0 sein");
+              return;
+            }
+            salesLimitParam = parsed;
+        }
+
         await onSubmit(
           updatedName,
           updatedPrice,
           categoryChanged ? selectedCategory : undefined,
           tabChanged ? normalizedTabIds : undefined,
           categoryChanged ? categoryId : undefined,
+          salesLimitParam,
         );
       } else {
         const trimmedName = name.trim();
@@ -106,8 +137,19 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
         if (!normalizedTabIds.length) throw new Error("Tab benötigt");
         if (parsedPrice < 0) throw new Error("Preis muss >= 0 sein");
         if (!selectedCategory) throw new Error("Kategorie benötigt");
+        let salesLimitParam: number | null;
+        if (limitEnabled) {
+          if (salesLimit === "") throw new Error("Verkaufslimit benötigt, wenn Limit aktiviert ist");
+          const parsed = Number(salesLimit);
+          if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 0) {
+            throw new Error("Verkaufslimit muss >= 0 sein");
+          }
+          salesLimitParam = parsed;
+        } else {
+          salesLimitParam = null;
+        }
 
-        await onSubmit(trimmedName, parsedPrice, selectedCategory, normalizedTabIds, categoryId);
+        await onSubmit(trimmedName, parsedPrice, selectedCategory, normalizedTabIds, categoryId, salesLimitParam);
       }
       setSuccess("Gespeichert");
     } catch (err) {
@@ -208,6 +250,36 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
               ))}
             </Select>
           </FormControl>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={limitEnabled}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setLimitEnabled(checked);
+                  if (!checked) {
+                    // disabling clears the numeric input
+                    setSalesLimit("");
+                  } else {
+                    // enabling restores previous initial value if present
+                    setSalesLimit((prev) => prev || (initial?.sales_limit !== undefined && initial?.sales_limit !== null ? String(initial.sales_limit) : ""));
+                  }
+                }}
+                disabled={loading}
+              />
+            }
+            label="Limit aktivieren"
+          />
+
+          <TextField
+            fullWidth
+            label="Verkaufslimit"
+            type="number"
+            slotProps={{ htmlInput: { step: "1", min: "0" } }}
+            value={salesLimit}
+            onChange={(e) => setSalesLimit(e.target.value)}
+            disabled={loading || !limitEnabled}
+          />
           <Button variant="contained" type="submit" disabled={isSubmitDisabled}>
             {loading ? "wird gespeichert..." : "Speichern"}
           </Button>
