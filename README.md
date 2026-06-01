@@ -4,9 +4,19 @@ Kassa-LT is a point-of-sale (POS) application to use on a single device.
 
 It uses a Vite frontend and a Rust backend, bundled using Tauri to create a single, cross-plattform application.
 
-![The User Interface of Kassa-LT](docs/assets/pospage.png)
+![The User Interface of Kassa-LT](docs/assets/pospage_v1.jpg)
 
 ## Features
+
+- Sort products into categories and tabs
+- Differentiate between cash and card payments
+- Quotas to limit the amount of products that can be bought
+- Export orders to csv
+- Backup the database to a remote target, like a Nextcloud instance
+- Admin mode to manage products etc.
+
+### Exports
+Show all orders together with a small statistics section and export all orders to csv.
 
 ### Tabs
 You can create a tabbed interface to easily switch between different sets of products.
