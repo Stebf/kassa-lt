@@ -83,8 +83,8 @@ fn migrate_products_tabs_table(conn: &rusqlite::Connection) -> Result<(), String
     if has_tab_id_column > 0 {
         conn.execute(
             "INSERT OR IGNORE INTO product_tabs (product_id, tab_id)
-             SELECT id, COALESCE(tab_id, 1)
-             FROM products",
+             SELECT p.id, COALESCE((SELECT id FROM tabs t WHERE t.id = p.tab_id), 1)
+             FROM products p",
             [],
         )
         .map_err(|e| e.to_string())?;
@@ -112,9 +112,7 @@ fn migrate_products_tabs_table(conn: &rusqlite::Connection) -> Result<(), String
             "INSERT OR IGNORE INTO product_tabs (product_id, tab_id)
              SELECT p.id, t.id
              FROM products p
-    let final_tab_ids = normalize_tab_ids(tab_ids)?;
-    let tabs = get_tabs_by_ids(&tx, &final_tab_ids)?;
-    let primary_tab_id = tabs[0].id;
+             JOIN tabs t ON t.name = TRIM(p.tab_name)
              WHERE p.tab_name IS NOT NULL AND TRIM(p.tab_name) != ''",
             [],
         )
@@ -261,19 +259,14 @@ pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
     )
     .map_err(|e| e.to_string())?;
 
-    migrate_orders_comment_column(&conn)?;
-    migrate_products_tabs_table(&conn)?;
-    migrate_products_tab_id_column(&conn)?;
-    migrate_product_sales_state_table(&conn)?;
-
-    // Ensure default category exists
+    // Ensure default category and tab exist before running migrations that may
+    // insert rows referencing them (e.g. product_tabs migration).
     conn.execute(
         "INSERT OR IGNORE INTO categories (id, name) VALUES (1, 'Default')",
         [],
     )
     .map_err(|e| e.to_string())?;
 
-    // Ensure default tab exists
     conn.execute(
         "INSERT OR IGNORE INTO tabs (id, name) VALUES (1, 'Alle')",
         [],
@@ -282,6 +275,11 @@ pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
 
     conn.execute("UPDATE tabs SET name = 'Alle' WHERE id = 1", [])
         .map_err(|e| e.to_string())?;
+
+    migrate_orders_comment_column(&conn)?;
+    migrate_products_tabs_table(&conn)?;
+    migrate_products_tab_id_column(&conn)?;
+    migrate_product_sales_state_table(&conn)?;
 
     Ok(())
 }
