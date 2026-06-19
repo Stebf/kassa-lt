@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import Router from "./Router";
 import { theme } from "./theme/theme";
 import { useAdmin } from "./context/AdminContext";
+import GlobalSnackbar from "./components/GlobalSnackbar";
 
 
 
@@ -34,6 +35,7 @@ function App() {
         </Toolbar>
       </AppBar>
       <Router />
+      <GlobalSnackbar />
     </ThemeProvider>
   );
 }

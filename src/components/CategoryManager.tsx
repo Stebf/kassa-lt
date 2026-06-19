@@ -20,6 +20,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import type { Category } from "../types/category";
 import { addCategory, deleteCategory, getCategories, updateCategory } from "../api";
+import { useUiStore } from "../store/uiStore";
 
 type Props = {
   open: boolean;
@@ -35,6 +36,7 @@ export default function CategoryManager({ open, onClose, onChange }: Props) {
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState<number | "new" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const notify = useUiStore((s) => s.notify);
 
   useEffect(() => {
     if (!open) {
@@ -71,6 +73,7 @@ export default function CategoryManager({ open, onClose, onChange }: Props) {
       setNewName("");
       await loadCategories();
       onChange?.();
+      notify.success("Kategorie erfolgreich hinzugefügt");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler beim Hinzufügen der Kategorie");
     } finally {
@@ -88,6 +91,7 @@ export default function CategoryManager({ open, onClose, onChange }: Props) {
       setEditingName("");
       await loadCategories();
       onChange?.();
+      notify.success("Kategorie erfolgreich aktualisiert");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler beim Aktualisieren der Kategorie");
     } finally {
@@ -113,6 +117,7 @@ export default function CategoryManager({ open, onClose, onChange }: Props) {
       await deleteCategory(id);
       await loadCategories();
       onChange?.();
+      notify.success("Kategorie erfolgreich gelöscht");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler beim Löschen der Kategorie");
     } finally {

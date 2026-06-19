@@ -8,8 +8,10 @@ import { exportCSV, exportOrders } from "../api";
 import OrdersTable from "../components/OrdersTable";
 import OrdersStatisticsTable from "../components/OrdersStatisticsTable";
 import { save } from '@tauri-apps/plugin-dialog';
+import { useUiStore } from "../store/uiStore";
 
 export default function OrdersPage() {
+  const notify = useUiStore((s) => s.notify);
 
   function handleExport() {
     const exportPath = save({
@@ -25,10 +27,10 @@ export default function OrdersPage() {
       if (path) {
         exportOrders().then((orders) => {
           exportCSV(orders, path);
+          notify.success("Export erfolgreich.");
         });
       }
     });
-    
   }
 
   return (

@@ -48,6 +48,7 @@ export default function CartPanel() {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const checkoutComment = useUiStore((s) => s.checkoutComment);
   const setCheckoutComment = useUiStore((s) => s.setCheckoutComment);
+  const notify = useUiStore((s) => s.notify);
 
   async function handleCheckout(
     type: "cash" | "card",
@@ -63,6 +64,7 @@ export default function CartPanel() {
       // refresh products so sales_used changes are reflected in the grid
       bumpProductsReloadKey();
       setCheckoutComment("");
+      notify.success("Checkout erfolgreich abgeschlossen");
       onSuccess?.();
     } catch (err) {
       console.error("Checkout failed:", err);
@@ -115,6 +117,7 @@ export default function CartPanel() {
 
   function clear() {
     setItems([]);
+    notify.info("Warenkorb geleert");
   }
 
   const total = items.reduce(

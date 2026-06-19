@@ -4,11 +4,13 @@ import type { Product } from "../types/product";
 import { getProductById, updateProduct } from "../api";
 import ProductForm from "../components/ProductForm";
 import { Box, Typography, Button } from "@mui/material";
+import { useUiStore } from "../store/uiStore";
 
 export default function ProductEditPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
+  const notify = useUiStore((s) => s.notify);
 
   useEffect(() => {
     if (!id) return;
@@ -21,6 +23,7 @@ export default function ProductEditPage() {
     if (!product) return;
     await updateProduct(product.id, name, price, category || undefined, tabIds, salesLimit);
     navigate("/products");
+    notify.success("Produkt erfolgreich aktualisiert");
   }
 
   return (
