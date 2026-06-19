@@ -91,11 +91,6 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
         const initialLimitEnabled = initial?.sales_limit != null;
         const limitChanged = salesLimit !== initialSalesStr || limitEnabled !== initialLimitEnabled;
 
-        if (!updatedName && !updatedPrice && !categoryChanged && !tabChanged && !limitChanged) {
-          setError("Mindestens ein Feld muss geändert werden");
-          return;
-        }
-
         if (updatedPrice !== undefined && updatedPrice < 0) {
           setError("Preis muss >= 0 sein");
           return;
@@ -117,6 +112,7 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
               return;
             }
             salesLimitParam = parsed;
+          }
         }
 
         await onSubmit(
@@ -126,7 +122,7 @@ export default function ProductForm({ initial = null, onSubmit, onDelete, isEdit
           tabChanged ? normalizedTabIds : undefined,
           categoryChanged ? categoryId : undefined,
           salesLimitParam,
-        );}
+        );
       } else {
         const trimmedName = name.trim();
         const parsedPrice = parseFloat(price);
