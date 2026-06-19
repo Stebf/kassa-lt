@@ -2,9 +2,11 @@ import { useNavigate } from "react-router-dom";
 import { Box, Typography, Button } from "@mui/material";
 import ProductForm from "../components/ProductForm";
 import { addProduct } from "../api";
+import { useUiStore } from "../store/uiStore";
 
 export default function ProductAddPage() {
   const navigate = useNavigate();
+  const notify = useUiStore((s) => s.notify);
 
   async function handleSubmit(name?: string, price?: number, category?: string, tabIds?: number[], _categoryId?: number, salesLimit?: number | null) {
     if (!name || price === undefined) {
@@ -13,6 +15,7 @@ export default function ProductAddPage() {
 
     await addProduct(name, price, category, tabIds, salesLimit);
     navigate("/products");
+    notify.success("Produkt erfolgreich hinzugefügt");
   }
 
   return (

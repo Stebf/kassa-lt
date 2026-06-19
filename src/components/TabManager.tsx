@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Dialog,
+  DialogActions,
   DialogContent,
   DialogTitle,
   Divider,
@@ -20,6 +21,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import type { Tab } from "../types/category";
 import { addTab, deleteTab, getTabs, updateTab } from "../api";
 import { getTabVisual } from "../theme/tabColors";
+import { useUiStore } from "../store/uiStore";
 
 type Props = {
   open: boolean;
@@ -35,6 +37,7 @@ export default function TabManager({ open, onClose, onChange }: Props) {
   const [loading, setLoading] = useState(false);
   const [savingId, setSavingId] = useState<number | "new" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const notify = useUiStore((s) => s.notify);
 
   useEffect(() => {
     if (!open) {
@@ -71,6 +74,7 @@ export default function TabManager({ open, onClose, onChange }: Props) {
       setNewName("");
       await loadTabs();
       onChange?.();
+      notify.success("Tab erfolgreich hinzugefügt");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler beim Hinzufügen des Tabs");
     } finally {
@@ -88,6 +92,7 @@ export default function TabManager({ open, onClose, onChange }: Props) {
       setEditingName("");
       await loadTabs();
       onChange?.();
+      notify.success("Tab erfolgreich aktualisiert");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler beim Aktualisieren des Tabs");
     } finally {
@@ -113,6 +118,7 @@ export default function TabManager({ open, onClose, onChange }: Props) {
       await deleteTab(id);
       await loadTabs();
       onChange?.();
+      notify.success("Tab erfolgreich gelöscht");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler beim Löschen des Tabs");
     } finally {
@@ -214,6 +220,9 @@ export default function TabManager({ open, onClose, onChange }: Props) {
           </Box>
         </Stack>
       </DialogContent>
+      <DialogActions>
+              <Button onClick={onClose}>Schließen</Button>
+      </DialogActions>
     </Dialog>
   );
 }
