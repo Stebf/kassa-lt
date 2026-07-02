@@ -40,6 +40,17 @@ impl ManageConnection for SqliteManager {
 
 pub type DbPool = Pool<SqliteManager>;
 
+#[derive(Debug, Clone)]
+pub struct SyncOutboxEntry {
+    pub id: i64,
+    pub event_type: String,
+    pub payload: String,
+    pub created_at: String,
+    pub sent_at: Option<String>,
+    pub attempts: i32,
+    pub last_error: Option<String>,
+}
+
 fn migrate_orders_comment_column(conn: &rusqlite::Connection) -> Result<(), String> {
     let has_comment_column: i64 = conn
         .query_row(
@@ -191,6 +202,26 @@ fn migrate_product_sales_state_table(conn: &rusqlite::Connection) -> Result<(), 
     Ok(())
 }
 
+fn migrate_sync_outbox_table(conn: &rusqlite::Connection) -> Result<(), String> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS sync_outbox (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_type TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            sent_at TEXT,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            last_error TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_sync_outbox_pending
+        ON sync_outbox(sent_at, attempts, id);",
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
 pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
     let conn = pool.get().map_err(|e| e.to_string())?;
 
@@ -280,6 +311,86 @@ pub fn init_db_with_pool(pool: &DbPool) -> Result<(), String> {
     migrate_products_tabs_table(&conn)?;
     migrate_products_tab_id_column(&conn)?;
     migrate_product_sales_state_table(&conn)?;
+    migrate_sync_outbox_table(&conn)?;
+
+    Ok(())
+}
+
+pub fn enqueue_sync_outbox_event_with_pool(
+    pool: &DbPool,
+    event_type: &str,
+    payload: &serde_json::Value,
+) -> Result<i64, String> {
+    let conn = pool.get().map_err(|e| e.to_string())?;
+    let created_at = Utc::now().to_rfc3339();
+
+    conn.execute(
+        "INSERT INTO sync_outbox (event_type, payload, created_at) VALUES (?1, ?2, ?3)",
+        params![event_type, payload.to_string(), created_at],
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(conn.last_insert_rowid())
+}
+
+pub fn list_pending_sync_outbox_entries_with_pool(
+    pool: &DbPool,
+) -> Result<Vec<SyncOutboxEntry>, String> {
+    let conn = pool.get().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, event_type, payload, created_at, sent_at, attempts, last_error
+             FROM sync_outbox
+             WHERE sent_at IS NULL
+             ORDER BY id ASC",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let rows = stmt.query_map([], |row| {
+        Ok(SyncOutboxEntry {
+            id: row.get(0)?,
+            event_type: row.get(1)?,
+            payload: row.get(2)?,
+            created_at: row.get(3)?,
+            sent_at: row.get(4)?,
+            attempts: row.get(5)?,
+            last_error: row.get(6)?,
+        })
+    })
+    .map_err(|e| e.to_string())?;
+
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())
+}
+
+pub fn mark_sync_outbox_entry_sent_with_pool(pool: &DbPool, id: i64) -> Result<(), String> {
+    let conn = pool.get().map_err(|e| e.to_string())?;
+    let sent_at = Utc::now().to_rfc3339();
+
+    conn.execute(
+        "UPDATE sync_outbox SET sent_at = ?2, last_error = NULL WHERE id = ?1",
+        params![id, sent_at],
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+pub fn mark_sync_outbox_entry_failed_with_pool(
+    pool: &DbPool,
+    id: i64,
+    error: &str,
+) -> Result<(), String> {
+    let conn = pool.get().map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "UPDATE sync_outbox
+         SET attempts = attempts + 1,
+             last_error = ?2
+         WHERE id = ?1",
+        params![id, error],
+    )
+    .map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -622,9 +733,7 @@ pub fn checkout_with_pool(
     )
     .map_err(|e| e.to_string())?;
 
-    tx.commit().map_err(|e| e.to_string())?;
-
-    Ok(Order {
+    let finished_order = Order {
         id: order_id,
         uuid: order_uuid,
         created_at,
@@ -632,7 +741,13 @@ pub fn checkout_with_pool(
         payment_method,
         comment,
         items: logic::order_items_from_cart(&items),
-    })
+    };
+
+    
+
+    tx.commit().map_err(|e| e.to_string())?;
+
+    Ok(finished_order)
 }
 
 pub fn get_orders_with_pool(pool: &DbPool) -> Result<Vec<Order>, String> {

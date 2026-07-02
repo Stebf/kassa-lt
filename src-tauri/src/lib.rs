@@ -6,9 +6,13 @@ pub mod exports;
 pub mod logic;
 pub mod models;
 
+#[path = "sync/sync.rs"]
+pub mod sync;
+
 use crate::database::{init_db_with_pool, DbPool, SqliteManager};
 use log::{error, info};
 use r2d2::Pool;
+use std::sync::Arc;
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
 
@@ -54,11 +58,14 @@ pub fn run() {
             };
 
             config::init_backup_config(&store.clone());
+            config::init_sync_config(&store.clone());
 
-            let config = config::get_backup_config(&store)
+            let backup_config = config::get_backup_config(&store)
                 .unwrap_or_else(|| config::default_backup_config());
+            let sync_config = config::get_sync_config(&store)
+                .unwrap_or_else(|| config::default_sync_config());
 
-            let (tx, rx) = tokio::sync::watch::channel(config);
+            let (tx, rx) = tokio::sync::watch::channel(backup_config);
 
             let worker = backup_worker::BackupWorker::new(
                 pool.clone(),
@@ -68,11 +75,17 @@ pub fn run() {
             );
             worker.start();
 
+            let sync_outbox = Arc::new(sync::OutboxPublisher::new(pool.clone()));
+            let sync_router = sync::SyncRouter::new_disabled();
+            sync_router.set_enabled(sync_config.enabled, sync_outbox.clone());
+
             // Make the pool available as managed state
             app.manage(pool);
             // Make the backup worker available to handlers in order to query its state
             app.manage(worker);
             app.manage(tx);
+            app.manage(sync_outbox);
+            app.manage(sync_router);
 
             Ok(())
         })
@@ -94,7 +107,9 @@ pub fn run() {
             commands::update_product,
             commands::delete_product,
             commands::get_backup_config,
+            commands::get_sync_config,
             commands::set_backup_config,
+            commands::set_sync_config,
             commands::get_backup_state,
             commands::run_backup_now,
             exports::export_orders_csv,

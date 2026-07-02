@@ -1,5 +1,7 @@
 use tauri_plugin_store::StoreExt;
 
+use log::error;
+
 use crate::backup_worker;
 use crate::config;
 use crate::database::{
@@ -10,6 +12,7 @@ use crate::database::{
     update_product_with_pool, update_tab_with_pool, DbPool,
 };
 use crate::models::{CartItem, Order, Product, ProductSalesCount, Tab};
+use crate::sync::{OutboxPublisher, SyncRouter};
 
 #[tauri::command]
 pub fn get_products(pool: tauri::State<'_, DbPool>) -> Result<Vec<Product>, String> {
@@ -38,11 +41,19 @@ pub fn get_categories(
 #[tauri::command]
 pub fn checkout(
     pool: tauri::State<'_, DbPool>,
+    sync_router: tauri::State<'_, SyncRouter>,
     items: Vec<CartItem>,
     payment_method: String,
     comment: String,
 ) -> Result<Order, String> {
-    checkout_with_pool(pool.inner(), items, payment_method, comment)
+    let order = checkout_with_pool(pool.inner(), items, payment_method, comment)?;
+
+    let publisher = sync_router.publisher();
+    if let Err(err) = publisher.publish_sale_created(&order) {
+        error!("sync checkout event was not queued: {}", err);
+    }
+
+    Ok(order)
 }
 
 #[tauri::command]
@@ -139,6 +150,14 @@ pub fn get_backup_config(
 }
 
 #[tauri::command]
+pub fn get_sync_config(app_handle: tauri::AppHandle) -> Result<config::SyncWorkerConfig, String> {
+    let store = app_handle
+        .store("settings.json")
+        .map_err(|e| e.to_string())?;
+    Ok(config::get_sync_config(&store).unwrap_or(config::default_sync_config()))
+}
+
+#[tauri::command]
 pub fn set_backup_config(
     // store: tauri::State<'_, Arc<tauri_plugin_store::Store<R>>>,
     app_handle: tauri::AppHandle,
@@ -150,6 +169,21 @@ pub fn set_backup_config(
         .map_err(|e| e.to_string())?;
     config::set_backup_config(&store, &config);
     let _ = backup_config_tx.send(config);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_sync_config(
+    app_handle: tauri::AppHandle,
+    sync_router: tauri::State<'_, SyncRouter>,
+    sync_outbox: tauri::State<'_, std::sync::Arc<OutboxPublisher>>,
+    config: config::SyncWorkerConfig,
+) -> Result<(), String> {
+    let store = app_handle
+        .store("settings.json")
+        .map_err(|e| e.to_string())?;
+    config::set_sync_config(&store, &config);
+    sync_router.set_enabled(config.enabled, sync_outbox.inner().clone());
     Ok(())
 }
 
