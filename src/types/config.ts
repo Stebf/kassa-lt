@@ -6,3 +6,8 @@ export type BackupWorkerConfig = {
     auth_method: string;
     enabled?: boolean;
 }
+
+export type SyncWorkerConfig = {
+    central_api_base_url: string;
+    enabled: boolean;
+}

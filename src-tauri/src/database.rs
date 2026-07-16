@@ -10,6 +10,7 @@ use r2d2::{ManageConnection, Pool};
 use crate::logic;
 use crate::models::ProductSalesCount;
 use crate::models::{CartItem, Order, OrderItem, Product, Tab};
+use crate::models::SyncOutboxEntry;
 
 pub struct SqliteManager {
     pub path: PathBuf,
@@ -40,16 +41,7 @@ impl ManageConnection for SqliteManager {
 
 pub type DbPool = Pool<SqliteManager>;
 
-#[derive(Debug, Clone)]
-pub struct SyncOutboxEntry {
-    pub id: i64,
-    pub event_type: String,
-    pub payload: String,
-    pub created_at: String,
-    pub sent_at: Option<String>,
-    pub attempts: i32,
-    pub last_error: Option<String>,
-}
+
 
 fn migrate_orders_comment_column(conn: &rusqlite::Connection) -> Result<(), String> {
     let has_comment_column: i64 = conn

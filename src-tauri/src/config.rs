@@ -1,5 +1,5 @@
 use std::sync::Arc;
-
+use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -60,6 +60,7 @@ pub fn default_backup_config() -> BackupWorkerConfig {
 pub fn get_sync_config<R: tauri::Runtime>(
     store: &Arc<tauri_plugin_store::Store<R>>,
 ) -> Option<SyncWorkerConfig> {
+    info!("Getting sync config from store");
     store
         .get("syncConfig")
         .and_then(|v| serde_json::from_value::<SyncWorkerConfig>(v).ok())
@@ -75,19 +76,21 @@ pub fn set_sync_config<R: tauri::Runtime>(
 
 pub fn default_sync_config() -> SyncWorkerConfig {
     SyncWorkerConfig {
-        enabled: false,
+        enabled: true,
         central_api_base_url: "http://localhost:8080/api/v1".to_string(),
     }
 }
 
 pub fn init_sync_config<R: tauri::Runtime>(store: &Arc<tauri_plugin_store::Store<R>>) {
     if get_sync_config(store).is_none() {
+        warn!("No sync config found, initializing with default config");
         set_sync_config(store, &default_sync_config());
     }
 }
 
 pub fn init_backup_config<R: tauri::Runtime>(store: &Arc<tauri_plugin_store::Store<R>>) {
     if get_backup_config(store).is_none() {
+        warn!("No backup config found, initializing with default config");
         set_backup_config(store, &default_backup_config());
     }
 }

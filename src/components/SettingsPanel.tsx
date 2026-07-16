@@ -1,7 +1,7 @@
 import { Alert, Box, Button, Divider, FormControl, InputLabel, MenuItem, Select, Stack, Switch, TextField, Typography } from '@mui/material';
 import { invoke } from '@tauri-apps/api/core';
 import { useEffect, useState, type FormEvent } from 'react';
-import { getBackupConfig, runBackupNow, setBackupConfig} from '../api';
+import { getBackupConfig, getSyncConfig, runBackupNow, setBackupConfig, setSyncConfig} from '../api';
 import type { BackupState } from '../types/backup';
 
 function formatTimestamp(timestamp: string): string {
@@ -82,7 +82,7 @@ function getBackupStatusAlert(params: {
     }
 }
 
-export default function SettingsPanel() {
+export function SettingsPanel() {
     const [authMethod, setAuthMethod] = useState("Basic");
     const [backupState, setBackupState] = useState<BackupState>({ type: "NotRunYet" });
     const [isRunningBackup, setIsRunningBackup] = useState(false);
@@ -258,6 +258,53 @@ export default function SettingsPanel() {
                 {printBackupState(backupState)}
             </Typography>
             <Divider></Divider>
+        </Box>
+    );
+}
+
+export function SyncSettingsPanel() {
+    const [syncEnabled, setSyncEnabled] = useState<boolean>(true);
+    const [isLoadingConfig, setIsLoadingConfig] = useState(true);
+    const [centralApiBaseUrl, setCentralApiBaseUrl] = useState<string>("");
+
+    useEffect(() => {
+        async function loadConfig() {
+            setIsLoadingConfig(true);
+            try {
+                const config = await getSyncConfig();
+                setSyncEnabled(config.enabled);
+                setCentralApiBaseUrl(config.central_api_base_url);
+            }
+            catch (e) {
+                console.error("Failed to load sync config", e);
+            } finally {
+                setIsLoadingConfig(false);
+            }
+        }
+        loadConfig();
+    }, []);
+
+    async function handleSyncEnabledChange(event: React.ChangeEvent<HTMLInputElement>) {
+        const newValue = event.target.checked;
+        setSyncEnabled(newValue);
+        try {
+            await setSyncConfig({
+                enabled: newValue,
+                central_api_base_url: centralApiBaseUrl,
+            });
+        } catch (e) {
+            console.error("Failed to update sync enabled state", e);
+        }
+    }
+
+    return (
+        <Box sx={{ p: 2 }}>
+            <Divider textAlign="left">Sync Einstellungen</Divider>
+            <Stack direction="row" spacing={2} sx={{ mt: 2, alignItems: 'center' }}>
+                <Typography variant="body2">Sync aktiviert</Typography>
+                <Switch checked={syncEnabled} onChange={handleSyncEnabledChange} disabled={isLoadingConfig} />
+                <TextField fullWidth label="Central API Base URL" name="centralApiBaseUrl" value={centralApiBaseUrl} onChange={(e) => setCentralApiBaseUrl(e.target.value)} disabled={isLoadingConfig} />
+            </Stack>
         </Box>
     );
 }

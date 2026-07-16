@@ -56,9 +56,10 @@ pub fn run() {
                     id
                 }
             };
+            let sync_instance_id = instance_id.clone();
 
-            config::init_backup_config(&store.clone());
-            config::init_sync_config(&store.clone());
+            config::init_backup_config(&store);
+            config::init_sync_config(&store);
 
             let backup_config = config::get_backup_config(&store)
                 .unwrap_or_else(|| config::default_backup_config());
@@ -66,6 +67,7 @@ pub fn run() {
                 .unwrap_or_else(|| config::default_sync_config());
 
             let (tx, rx) = tokio::sync::watch::channel(backup_config);
+            let (sync_tx, sync_rx) = tokio::sync::watch::channel(sync_config.clone());
 
             let worker = backup_worker::BackupWorker::new(
                 pool.clone(),
@@ -78,12 +80,16 @@ pub fn run() {
             let sync_outbox = Arc::new(sync::OutboxPublisher::new(pool.clone()));
             let sync_router = sync::SyncRouter::new_disabled();
             sync_router.set_enabled(sync_config.enabled, sync_outbox.clone());
+            let sync_worker = sync::SyncWorker::new(pool.clone(), sync_instance_id, sync_rx);
+            sync_worker.start();
 
             // Make the pool available as managed state
             app.manage(pool);
             // Make the backup worker available to handlers in order to query its state
             app.manage(worker);
             app.manage(tx);
+            app.manage(sync_worker);
+            app.manage(sync_tx);
             app.manage(sync_outbox);
             app.manage(sync_router);
 
@@ -112,6 +118,8 @@ pub fn run() {
             commands::set_sync_config,
             commands::get_backup_state,
             commands::run_backup_now,
+            commands::get_sync_state,
+            commands::run_sync_now,
             exports::export_orders_csv,
         ])
         .run(tauri::generate_context!())

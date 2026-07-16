@@ -5,3 +5,4 @@ pub mod sync_publisher;
 pub mod sync_worker;
 
 pub use sync_publisher::{OutboxPublisher, SaleCreatedPayload, SyncPublisher, SyncRouter};
+pub use sync_worker::{SyncState, SyncWorker};

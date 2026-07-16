@@ -55,3 +55,14 @@ pub struct ProductSalesCount {
     pub product_name: String,
     pub count: i32,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SyncOutboxEntry {
+    pub id: i64,
+    pub event_type: String,
+    pub payload: String,
+    pub created_at: String,
+    pub sent_at: Option<String>,
+    pub attempts: i32,
+    pub last_error: Option<String>,
+}

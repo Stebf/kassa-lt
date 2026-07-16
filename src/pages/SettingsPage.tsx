@@ -1,5 +1,5 @@
 import { Box, Typography } from "@mui/material";
-import SettingsPanel from "../components/SettingsPanel";
+import {SettingsPanel, SyncSettingsPanel } from "../components/SettingsPanel";
 import { useAdmin } from '../context/AdminContext';
 import SettingsAdminModePanel from "../components/SettingsAdminModePanel";
 
@@ -10,6 +10,7 @@ export default function SettingsPage() {
             <Typography variant="h5">Einstellungen</Typography>
             <SettingsAdminModePanel />
             {adminModeEnabled && <SettingsPanel />}
+            {adminModeEnabled && <SyncSettingsPanel />}
         </Box>
     );
 }

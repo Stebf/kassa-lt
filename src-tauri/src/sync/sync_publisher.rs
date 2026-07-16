@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::database::{enqueue_sync_outbox_event_with_pool, DbPool};
 use crate::models::Order;
+use log::info;
 
 const SALE_CREATED_EVENT_TYPE: &str = "sale.created";
 
@@ -40,6 +41,8 @@ impl SyncPublisher for OutboxPublisher {
             order: order.clone(),
         })
         .map_err(|e| e.to_string())?;
+
+        info!("Enqueuing sale.created event for order_id={}", order.id);
 
         enqueue_sync_outbox_event_with_pool(&self.pool, SALE_CREATED_EVENT_TYPE, &payload)?;
         Ok(())

@@ -5,7 +5,7 @@ import type { CartItem } from "./types/cart";
 import type { Order, ProductSalesCount } from "./types/order";
 
 import type { Category, Tab } from "./types/category";
-import type { BackupWorkerConfig } from "./types/config";
+import type { BackupWorkerConfig, SyncWorkerConfig } from "./types/config";
 import type { BackupState } from "./types/backup";
 
 export async function checkout(
@@ -144,4 +144,13 @@ export async function getBackupConfig(): Promise<BackupWorkerConfig> {
 
 export async function runBackupNow(): Promise<BackupState> {
   return invoke<BackupState>("run_backup_now");
+}
+
+// Sync
+export async function getSyncConfig(): Promise<SyncWorkerConfig> {
+  return invoke<SyncWorkerConfig>("get_sync_config");
+}
+
+export async function setSyncConfig(config: SyncWorkerConfig): Promise<void> {
+  await invoke<void>("set_sync_config", { config });
 }

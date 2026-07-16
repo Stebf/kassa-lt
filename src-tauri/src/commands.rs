@@ -12,7 +12,7 @@ use crate::database::{
     update_product_with_pool, update_tab_with_pool, DbPool,
 };
 use crate::models::{CartItem, Order, Product, ProductSalesCount, Tab};
-use crate::sync::{OutboxPublisher, SyncRouter};
+use crate::sync::{OutboxPublisher, SyncRouter, SyncState, SyncWorker};
 
 #[tauri::command]
 pub fn get_products(pool: tauri::State<'_, DbPool>) -> Result<Vec<Product>, String> {
@@ -177,6 +177,7 @@ pub fn set_sync_config(
     app_handle: tauri::AppHandle,
     sync_router: tauri::State<'_, SyncRouter>,
     sync_outbox: tauri::State<'_, std::sync::Arc<OutboxPublisher>>,
+    sync_worker_tx: tauri::State<'_, tokio::sync::watch::Sender<config::SyncWorkerConfig>>,
     config: config::SyncWorkerConfig,
 ) -> Result<(), String> {
     let store = app_handle
@@ -184,7 +185,24 @@ pub fn set_sync_config(
         .map_err(|e| e.to_string())?;
     config::set_sync_config(&store, &config);
     sync_router.set_enabled(config.enabled, sync_outbox.inner().clone());
+    let _ = sync_worker_tx.send(config);
     Ok(())
+}
+
+#[tauri::command]
+pub fn get_sync_state(sync_worker: tauri::State<'_, SyncWorker>) -> Result<SyncState, String> {
+    Ok(sync_worker.get_last_state())
+}
+
+#[tauri::command]
+pub async fn run_sync_now(
+    sync_worker: tauri::State<'_, SyncWorker>,
+) -> Result<SyncState, String> {
+    if !sync_worker.is_enabled() {
+        return Err("Sync module is disabled".to_string());
+    }
+
+    Ok(sync_worker.run_sync_now().await)
 }
 
 #[tauri::command]
