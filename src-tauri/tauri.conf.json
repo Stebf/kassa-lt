@@ -13,8 +13,7 @@
     "windows": [
       {
         "title": "kassa-lt",
-        "width": 1920,
-        "height": 1080,
+        "maximized": true,
         "resizable": true,
         "fullscreen": false
       }
