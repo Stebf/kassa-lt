@@ -11,6 +11,7 @@ import {
 } from "@mui/material";
 
 import DeleteIcon from '@mui/icons-material/Delete';
+import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
@@ -151,17 +152,19 @@ export default function CartPanel() {
         ))}
       </List>
 
+      <Stack spacing={1} sx={{ mt: { xs: 1, lg: 2 }, gap: { xs: 0, sm: 1, lg: 2 } }}>
       <TextField
         id="checkout-notes"
         label="Anmerkungen zur Bestellung"
-        multiline
-        rows={2}
         fullWidth
+        multiline
+        maxRows={3}
         value={checkoutComment}
         onChange={(e) => setCheckoutComment(e.target.value)}
+        variant="outlined"
       />
 
-      <Divider sx={{ my: 2 }} />
+      {/* <Divider sx={{ my: 0 }} /> */}
 
       {checkoutError ? (
         <Typography variant="body2" color="error" sx={{ mb: 1 }}>
@@ -173,7 +176,6 @@ export default function CartPanel() {
         {total.toFixed(2)} €
       </Typography>
 
-      <Stack spacing={2} sx={{ mt: 2 }}>
         <Button
           variant="contained"
           onClick={async () => {
@@ -212,9 +214,12 @@ export default function CartPanel() {
           color="error"
           onClick={() => clear()}
           disabled={!items.length}
+          variant="outlined"
+          startIcon={<DeleteForeverIcon />}
         >
           Leeren
         </Button>
+
       </Stack>
 
       <CashCheckoutDialog
